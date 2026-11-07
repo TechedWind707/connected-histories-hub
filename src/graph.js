@@ -17,14 +17,16 @@ const TYPE_STYLE = {
   event:        { color: '#2e4a7d', label: 'Event / meeting' },
   topic:        { color: '#7a6f60', label: 'Topic' },
   institution:  { color: '#1b1611', label: 'Holding institution' },
-  record:       { color: '#c4b8a3', label: 'Record' }
+  record:       { color: '#c4b8a3', label: 'Record' },
+  query:        { color: '#a87f19', label: 'Your search' }
 };
 
 function createGraph(canvas, opts) {
   const ctx = canvas.getContext('2d');
   const dpr = Math.max(1, window.devicePixelRatio || 1);
   let W = 0, H = 0;
-  const nodes = opts.nodes.map(n => ({ ...n, x: (Math.random() - .5) * 400, y: (Math.random() - .5) * 400, vx: 0, vy: 0 }));
+  // opts.fixed: nodes arrive with x/y already placed (e.g. a radial layout) and never move
+  const nodes = opts.nodes.map(n => ({ ...n, x: opts.fixed ? n.x : (Math.random() - .5) * 400, y: opts.fixed ? n.y : (Math.random() - .5) * 400, vx: 0, vy: 0 }));
   const byId = new Map(nodes.map(n => [n.id, n]));
   const edges = opts.edges.filter(e => byId.has(e.s) && byId.has(e.t)).map(e => ({ ...e, a: byId.get(e.s), b: byId.get(e.t) }));
   const nbrs = new Map(nodes.map(n => [n.id, new Set()]));
@@ -100,7 +102,7 @@ function createGraph(canvas, opts) {
       ctx.stroke();
       if (on && e.label && view.k > .55) {
         ctx.setLineDash([]);
-        ctx.font = '11px Inter, system-ui, sans-serif'; ctx.fillStyle = '#7a5c10';
+        ctx.font = '11px "Google Sans Flex", system-ui, sans-serif'; ctx.fillStyle = '#7a5c10';
         ctx.fillText(e.label, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4);
       }
     }
@@ -127,16 +129,20 @@ function createGraph(canvas, opts) {
     // labels last, skipping any that would overlap one already drawn
     for (const [n, x, y, r] of labelQueue) {
       const strong = n === hover || n === pinned;
-      ctx.font = `${strong ? 700 : 500} ${n.r >= 11 ? 13 : 11.5}px Inter, system-ui, sans-serif`;
-      const label = n.label.length > 34 ? n.label.slice(0, 33) + '…' : n.label;
-      const w = ctx.measureText(label).width, bx = x + r + 4, by = y - 9, bh = 15;
+      ctx.font = `${strong ? 700 : 500} ${n.r >= 11 ? 13 : 11.5}px "Google Sans Flex", system-ui, sans-serif`;
+      const max = opts.labelMax || 34;
+      const label = n.label.length > max ? n.label.slice(0, max - 1) + '…' : n.label;
+      const w = ctx.measureText(label).width, by = y - 9, bh = 15;
+      // keep labels inside the canvas: flip to the left side near the right edge
+      const leftSide = (opts.fixed && n.x < -1) || x + r + 4 + w > W - 4;
+      const bx = leftSide ? Math.max(4, x - r - 8 - w) : x + r + 5;
       if (!strong && boxes.some(b => bx < b[0] + b[2] && bx + w > b[0] && by < b[1] + b[3] && by + bh > b[1])) continue;
       boxes.push([bx, by, w, bh]);
       ctx.lineWidth = 4; ctx.strokeStyle = 'rgba(251,248,241,.92)'; ctx.strokeText(label, bx, y + 4);
-      ctx.fillStyle = '#1b1611'; ctx.fillText(label, bx, y + 4);
+      ctx.fillStyle = '#1c1712'; ctx.fillText(label, bx, y + 4);
     }
   }
-  function loop() { if (alpha > 0.021 || dragging) tick(); draw(); raf = requestAnimationFrame(loop); }
+  function loop() { if (!opts.fixed && (alpha > 0.021 || dragging)) tick(); draw(); raf = requestAnimationFrame(loop); }
 
   /* ---------- interaction ---------- */
   function nodeAt(px, py) {
@@ -188,14 +194,14 @@ function createGraph(canvas, opts) {
 
   const ro = new ResizeObserver(resize); ro.observe(canvas);
   resize();
-  for (let i = 0; i < 260; i++) tick();     // settle before first paint
+  if (!opts.fixed) for (let i = 0; i < 260; i++) tick();     // settle before first paint
   // fit to view
   function fit(ids) {
     const list = nodes.filter(n => visible(n) && (!ids || ids.has(n.id)));
     if (!list.length) return;
     const xs = list.map(n => n.x), ys = list.map(n => n.y);
     const minX = Math.min(...xs), maxX = Math.max(...xs), minY = Math.min(...ys), maxY = Math.max(...ys);
-    const k = Math.min(1.6, Math.max(.3, Math.min(W / (maxX - minX + 160), H / (maxY - minY + 120))));
+    const k = Math.min(1.6, Math.max(.3, Math.min(W / (maxX - minX + (opts.fitPad || 160)), H / (maxY - minY + 120))));
     view.k = k; view.x = -((minX + maxX) / 2) * k; view.y = -((minY + maxY) / 2) * k;
   }
   fit();

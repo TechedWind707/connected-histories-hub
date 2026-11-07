@@ -2,13 +2,13 @@
 
 Why: the team wants a single file they can email / open from a USB stick.
 Run:  python build.py   →  writes index.html next to this script.
-Order matters: feeds → authority → normalize → graph → app.
+Order matters: data first (feeds, authority, normalize), then the engine (graph, core), then screens, then boot.
 """
 from pathlib import Path
 
 root = Path(__file__).parent
 src = root / 'src'
-js_order = ['feeds.js', 'authority.js', 'normalize.js', 'graph.js', 'app.js']
+js_order = ['feeds.js', 'authority.js', 'normalize.js', 'graph.js', 'core.js', 'map.js', 'widgets.js', 'ask.js', 'views.js', 'admin.js', 'boot.js']
 
 shell = (src / 'shell.html').read_text(encoding='utf-8')
 css = (src / 'style.css').read_text(encoding='utf-8')
