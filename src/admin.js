@@ -73,22 +73,59 @@ function adminSuggestions() {
     </article>`).join('')}`;
 }
 
-function adminInstitutions() {
-  const keys = Object.keys(INSTITUTIONS).filter(k => k !== 'csv');
-  onMount(() => $$('form[data-inst]').forEach(f => f.onsubmit = e => {
-    e.preventDefault();
-    const k = f.dataset.inst, d = Object.fromEntries(new FormData(f));
-    INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
-    logActivity(`Updated visitor details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); render();
-  }));
-  return `<p class="lead">Keep visitor details current. These appear on every record the institution holds.</p>
-    ${keys.map(k => { const I = INSTITUTIONS[k]; return `<details class="rev"><summary><b>${h(I.name)}</b> <span class="meta">${plural(recsOf(k).length, 'record')}${INST_EDITS[k] ? ' · edited' : ''}</span></summary>
-      <form class="form" data-inst="${k}">
-        <label>Visitor address<input name="address" value="${h(I.address || '')}"></label>
-        <label>Website<input name="web" type="url" value="${h(I.web || '')}"></label>
-        <label>How to access<textarea name="access" rows="2">${h(I.access || '')}</textarea></label>
-        <button class="btn btn-secondary">Save</button>
-      </form></details>`; }).join('')}`;
+function adminInstitutions(p) {
+  const keys = Object.keys(INSTITUTIONS).filter(k => k !== 'csv').sort((a, b) => recsOf(b).length - recsOf(a).length);
+  const placeOpts = sel => `<option value="">None</option>` + Object.keys(PLACES).filter(id => PLACES[id].lat != null).sort((a, b) => PLACES[a].name.localeCompare(PLACES[b].name))
+    .map(id => `<option value="${id}" ${sel === id ? 'selected' : ''}>${h(PLACES[id].name)}</option>`).join('');
+  // one form layout for both "edit" and "add"
+  const fields = (I = {}) => `
+    <label>Visitor address<input name="address" value="${h(I.address || '')}" placeholder="Street, town, province"></label>
+    <div class="coord-row">
+      <label>Latitude<input name="lat" inputmode="decimal" value="${h(I.lat ?? '')}" placeholder="e.g. 44.6488"></label>
+      <label>Longitude<input name="lng" inputmode="decimal" value="${h(I.lng ?? '')}" placeholder="e.g. -63.5752"></label>
+    </div>
+    <p class="meta">With latitude and longitude the map pin sits on the building. Without them it falls back to the community point below.</p>
+    <label>Community (fallback pin)<select name="place">${placeOpts(I.place)}</select></label>
+    <label>Website<input name="web" type="url" value="${h(I.web || '')}" placeholder="https://"></label>
+    <label>How to access<textarea name="access" rows="2">${h(I.access || '')}</textarea></label>`;
+  const check = d => {
+    const has = d.lat !== '' || d.lng !== '';
+    const lat = parseFloat(d.lat), lng = parseFloat(d.lng);
+    if (has && !(Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return 'Latitude must be between -90 and 90 and longitude between -180 and 180, both filled in.';
+    return '';
+  };
+  onMount(() => {
+    $$('form[data-inst]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const k = f.dataset.inst, d = Object.fromEntries(new FormData(f)), err = check(d);
+      if (err) { $('.form-err', f).textContent = err; $('.form-err', f).hidden = false; return; }
+      INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
+      logActivity(`Updated details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
+    });
+    const nf = $('#inst-new');
+    nf.onsubmit = e => {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(nf)), name = d.name.trim();
+      const err = !name ? 'Give the institution a name.' : check(d);
+      if (err) { $('.form-err', nf).textContent = err; $('.form-err', nf).hidden = false; return; }
+      const k = 'inst-' + norm(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (INSTITUTIONS[k]) { $('.form-err', nf).textContent = 'An institution with that name already exists.'; $('.form-err', nf).hidden = false; return; }
+      INST_EDITS[k] = { ...d, name, kind: d.kind.trim() || 'Institution', added: true };
+      logActivity(`Added institution ${name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
+    };
+  });
+  return `<p class="lead">Keep visitor details current. They appear on every record the institution holds, and the address links to its pin on the map.</p>
+    ${p.saved && INSTITUTIONS[p.saved] ? `<p class="notice">${statusWord('approved')} Saved ${h(INSTITUTIONS[p.saved].name)}. ${hasPin(p.saved) ? `<a href="${href('map', { focus: 'i:' + p.saved })}">See it on the map</a>` : 'No map pin yet: add coordinates or a community.'}</p>` : ''}
+    ${keys.map(k => { const I = INSTITUTIONS[k]; const pos = instLatLng(k); return `<details class="rev" ${p.saved === k ? 'open' : ''}><summary><b>${h(I.name)}</b> <span class="meta">${plural(recsOf(k).length, 'record')} · ${pos ? (pos.exact ? 'exact pin' : 'community pin') : 'no pin'}${INST_EDITS[k] ? ' · edited' : ''}</span></summary>
+      <form class="form" data-inst="${k}">${fields(I)}<p class="notice notice-rejected form-err" hidden></p><button class="btn btn-secondary">Save</button></form></details>`; }).join('')}
+    <section class="inst-new"><h2>Add an institution</h2>
+      <form class="form" id="inst-new">
+        <label>Name<input name="name" required></label>
+        <label>Kind<input name="kind" placeholder="e.g. Community museum, University archives"></label>
+        ${fields()}
+        <p class="notice notice-rejected form-err" hidden></p>
+        <button class="btn btn-primary">Add institution</button>
+      </form></section>`;
 }
 
 /* ---------- CSV import: a new institution can join with a spreadsheet ---------- */

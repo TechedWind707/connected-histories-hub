@@ -1,3 +1,13 @@
+/* Where an institution's pin goes: its own latitude/longitude when an admin has
+   entered them (exact), otherwise its community's gazetteer point (approximate). */
+function instLatLng(k) {
+  const I = INSTITUTIONS[k]; if (!I) return null;
+  const lat = parseFloat(I.lat), lng = parseFloat(I.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { ll: [lat, lng], exact: true };
+  const P = PLACES[I.place];
+  return Number.isFinite(P?.lat) && Number.isFinite(P?.lng) ? { ll: [P.lat, P.lng], exact: false } : null;
+}
+
 /* Leaflet map of records → places (circles) + holders (squares) */
 function mountRecordsMap(el, recs, opt = {}) {
   if (!el) return;
@@ -59,7 +69,7 @@ function mountRecordsMap(el, recs, opt = {}) {
   // lines first (underneath)
   if (opt.lines) for (const [p, rs] of byPlace) {
     const P = PLACES[p];
-    for (const k of new Set(rs.map(r => r.holder))) { const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (Number.isFinite(ip?.lat) && Number.isFinite(ip?.lng) && (ip.lat !== P.lat || ip.lng !== P.lng)) L.polyline([[P.lat, P.lng], [ip.lat, ip.lng]], { color: '#a87f19', weight: 1.4, opacity: .55, dashArray: '4 5' }).addTo(map); }
+    for (const k of new Set(rs.map(r => r.holder))) { const pos = instLatLng(k); if (pos && (pos.ll[0] !== P.lat || pos.ll[1] !== P.lng)) L.polyline([[P.lat, P.lng], pos.ll], { color: '#a87f19', weight: 1.4, opacity: .55, dashArray: '4 5' }).addTo(map); }
   }
   for (const [p, rs] of byPlace) {
     const P = PLACES[p];
@@ -75,10 +85,10 @@ function mountRecordsMap(el, recs, opt = {}) {
   const sq = L.divIcon({ className: 'inst-icon', html: '<span></span>', iconSize: [16, 16], iconAnchor: [8, 8] });
   const placed = new Map();
   for (const [k, rs] of holders) {
-    const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (!Number.isFinite(ip?.lat) || !Number.isFinite(ip?.lng)) continue;
-    const off = placed.get(I.place) || 0; placed.set(I.place, off + 1);   // nudge institutions sharing a city
-    const ll = [ip.lat + off * 0.012, ip.lng + off * 0.018];
-    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
+    const I = INSTITUTIONS[k], pos = instLatLng(k); if (!pos) continue;
+    let ll = pos.ll;
+    if (!pos.exact) { const off = placed.get(I.place) || 0; placed.set(I.place, off + 1); ll = [ll[0] + off * 0.012, ll[1] + off * 0.018]; }   // nudge institutions sharing a community point
+    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`)
       .bindTooltip(I.name);
     bounds.push(ll);
   }

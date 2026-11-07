@@ -732,7 +732,7 @@ pre { font: 13px/1.5 ui-monospace, SFMono-Regular, Menlo, monospace; background:
 #nav a::after { content: ""; position: absolute; left: 0; right: 0; bottom: 0; height: 2px; background: var(--gold); transform: scaleX(0); transform-origin: left; transition: transform .25s var(--ease); }
 #nav a:hover::after, #nav a.on::after { transform: scaleX(1); }
 #nav .nav-admin { opacity: .72; } #nav .nav-admin:hover, #nav .nav-admin.on { opacity: 1; }
-#hdr-search { display: flex; gap: var(--space-2); }
+#hdr-search { display: flex; gap: var(--space-2); position: relative; z-index: 1200; }
 #hdr-search input { width: 200px; border: 1px solid transparent; border-radius: var(--radius-sm); padding: 8px 12px; font: inherit; font-size: 15px; }
 #hdr-search .btn { padding: 8px 14px; }
 
@@ -987,6 +987,12 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
 .rels-d summary { cursor: pointer; font-weight: 600; font-size: 15px; padding: var(--space-2) 0; color: var(--red); }
 .panel .map { border: 0; border-radius: var(--radius-sm); }
 .ecard .h3 { margin-bottom: var(--space-1); }
+
+.hdr-field { position: relative; }
+#hdr-suggest { left: auto; right: 0; width: min(440px, 92vw); color: var(--ink); }
+@media (max-width: 640px) { .hdr-field { flex: 1; } #hdr-suggest { left: 0; width: auto; } }
+.inst-new { margin-top: var(--space-8); }
+.coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
 </style>
 </head>
 <body>
@@ -999,7 +1005,7 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
     <a href="#/suggest" data-v="suggest">Suggest a resource</a>
     <a href="#/admin" data-v="admin" class="nav-admin">Admin</a>
   </nav>
-  <form id="hdr-search" role="search" hidden><label class="sr-only" for="hdr-q">Search records</label><input id="hdr-q" placeholder="Search records"><button class="btn btn-primary" type="submit">Search</button></form>
+  <form id="hdr-search" role="search" hidden><div class="hdr-field"><label class="sr-only" for="hdr-q">Search records</label><input id="hdr-q" placeholder="Search records" autocomplete="off"><div id="hdr-suggest" class="suggest" role="listbox" hidden></div></div><button class="btn btn-primary" type="submit">Search</button></form>
 </div></header>
 <main id="app" tabindex="-1"><noscript><p class="wrap">This site needs JavaScript.</p></noscript></main>
 <footer class="foot"><div class="wrap foot-in">
@@ -2236,6 +2242,7 @@ function render() {
   document.body.classList.toggle('is-admin', view === 'admin');
   $('#hdr-search').hidden = !view || view === 'search';
   if ($('#hdr-q')) $('#hdr-q').value = '';
+  if ($('#hdr-suggest')) $('#hdr-suggest').hidden = true;
   MOUNTS.forEach(f => f());
   if (!params.keep) window.scrollTo(0, 0);
 }
@@ -2245,11 +2252,22 @@ function boot() {
   buildIndex();
   const hq = $('#hdr-q');
   $('#hdr-search').onsubmit = e => { e.preventDefault(); if (hq.value.trim()) go('search', { q: hq.value.trim() }); };
+  attachSuggest(hq, $('#hdr-suggest'));
   render();
 }
 
 
 /* ---- map.js ---- */
+/* Where an institution's pin goes: its own latitude/longitude when an admin has
+   entered them (exact), otherwise its community's gazetteer point (approximate). */
+function instLatLng(k) {
+  const I = INSTITUTIONS[k]; if (!I) return null;
+  const lat = parseFloat(I.lat), lng = parseFloat(I.lng);
+  if (Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180) return { ll: [lat, lng], exact: true };
+  const P = PLACES[I.place];
+  return Number.isFinite(P?.lat) && Number.isFinite(P?.lng) ? { ll: [P.lat, P.lng], exact: false } : null;
+}
+
 /* Leaflet map of records → places (circles) + holders (squares) */
 function mountRecordsMap(el, recs, opt = {}) {
   if (!el) return;
@@ -2311,7 +2329,7 @@ function mountRecordsMap(el, recs, opt = {}) {
   // lines first (underneath)
   if (opt.lines) for (const [p, rs] of byPlace) {
     const P = PLACES[p];
-    for (const k of new Set(rs.map(r => r.holder))) { const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (Number.isFinite(ip?.lat) && Number.isFinite(ip?.lng) && (ip.lat !== P.lat || ip.lng !== P.lng)) L.polyline([[P.lat, P.lng], [ip.lat, ip.lng]], { color: '#a87f19', weight: 1.4, opacity: .55, dashArray: '4 5' }).addTo(map); }
+    for (const k of new Set(rs.map(r => r.holder))) { const pos = instLatLng(k); if (pos && (pos.ll[0] !== P.lat || pos.ll[1] !== P.lng)) L.polyline([[P.lat, P.lng], pos.ll], { color: '#a87f19', weight: 1.4, opacity: .55, dashArray: '4 5' }).addTo(map); }
   }
   for (const [p, rs] of byPlace) {
     const P = PLACES[p];
@@ -2327,10 +2345,10 @@ function mountRecordsMap(el, recs, opt = {}) {
   const sq = L.divIcon({ className: 'inst-icon', html: '<span></span>', iconSize: [16, 16], iconAnchor: [8, 8] });
   const placed = new Map();
   for (const [k, rs] of holders) {
-    const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (!Number.isFinite(ip?.lat) || !Number.isFinite(ip?.lng)) continue;
-    const off = placed.get(I.place) || 0; placed.set(I.place, off + 1);   // nudge institutions sharing a city
-    const ll = [ip.lat + off * 0.012, ip.lng + off * 0.018];
-    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
+    const I = INSTITUTIONS[k], pos = instLatLng(k); if (!pos) continue;
+    let ll = pos.ll;
+    if (!pos.exact) { const off = placed.get(I.place) || 0; placed.set(I.place, off + 1); ll = [ll[0] + off * 0.012, ll[1] + off * 0.018]; }   // nudge institutions sharing a community point
+    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`)
       .bindTooltip(I.name);
     bounds.push(ll);
   }
@@ -2646,7 +2664,7 @@ const span = recs => { const ys = recs.flatMap(r => [r.dateStart, r.dateEnd]).fi
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const facetKeyFor = t => ({ person: 'person', place: 'place', organization: 'org', event: 'event', topic: 'topic', institution: 'holder' }[t] || 'topic');
 /* "See it on the map" links: only when the place/institution really has a pin */
-const hasPin = k => PLACES[INSTITUTIONS[k]?.place]?.lat != null;
+const hasPin = k => !!instLatLng(k);
 const addressLink = k => { const I = INSTITUTIONS[k]; if (!I) return ''; const t = h(I.address || 'Address not confirmed');
   return hasPin(k) ? `<a class="addr" href="${href('map', { focus: 'i:' + k })}" title="Show ${h(I.name)} on the map">${t}</a>` : t; };
 const ext = (url, label) => `<a class="ext" href="${h(url)}" target="_blank" rel="noopener">${label}<span aria-hidden="true"> ↗</span></a>`;
@@ -2732,21 +2750,33 @@ function bindSearchBox() {
   $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
   const inp = $('#q', f), box = $('#suggest', f);
   if (mode !== 'search') return;
-  // live suggestions: matching pages (people, places, topics…) and matching records
+  attachSuggest(inp, box);
+}
+
+/* ---------- live suggestions under any search box ----------
+   Used by the main search box and the header search.
+   Click (or Enter on a highlighted row) goes straight to that page/record. */
+function attachSuggest(inp, box) {
+  if (!inp || !box) return;
   let active = -1;
   const mark = (text, q) => { const i = norm(text).indexOf(norm(q)); return i < 0 ? h(text) : h(text.slice(0, i)) + '<b>' + h(text.slice(i, i + q.length)) + '</b>' + h(text.slice(i + q.length)); };
   const close = () => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); active = -1; };
+  const open = target => { close(); inp.blur(); location.hash = target; };
+  inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-controls', box.id);
   inp.oninput = () => {
     const q = inp.value.trim();
     if (q.length < 2) { close(); return; }
     const pages = entityMatches(q, 5);
     const recs = runSearch({ q }).slice(0, 4);
     if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; return; }
-    box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)} · ${plural(x.count, 'record')}</span></a>`).join('')}` : '')
+    box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)}${x.count ? ' · ' + plural(x.count, 'record') : ''}</span></a>`).join('')}` : '')
       + (recs.length ? `<p class="sug-h">Records</p>${recs.map(r => `<a role="option" href="${href('r/' + r.id)}"><span>${mark(r.title, q)}</span><span class="meta">${h(r.dateText || '')}</span></a>`).join('')}` : '')
       + `<a role="option" class="sug-all" href="${href('search', { q })}">See all results for “${h(q)}”</a>`;
     box.hidden = false; inp.setAttribute('aria-expanded', 'true'); active = -1;
   };
+  // pressing the mouse on the list must not blur the input (that used to close the list before the click landed)
+  box.onmousedown = e => e.preventDefault();
+  box.onclick = e => { const a = e.target.closest('a[role="option"]'); if (!a) return; e.preventDefault(); open(a.getAttribute('href')); };
   inp.onkeydown = e => {
     const opts = $$('a[role="option"]', box);
     if (box.hidden || !opts.length) return;
@@ -2755,11 +2785,11 @@ function bindSearchBox() {
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
       opts.forEach((o, i) => o.classList.toggle('on', i === active));
       opts[active].scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.hash = opts[active].getAttribute('href'); }
+    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); open(opts[active].getAttribute('href')); }
     else if (e.key === 'Escape') close();
   };
   inp.onfocus = () => { if (inp.value.trim().length >= 2) inp.oninput(); };
-  inp.onblur = () => setTimeout(close, 180);
+  inp.onblur = () => setTimeout(close, 150);
 }
 
 /* ═══ BROWSE ═══════════════════════════════════════════════════════ */
@@ -2932,7 +2962,7 @@ function viewMap(_, p) {
 
 /* ═══ INSTITUTIONS ═════════════════════════════════════════════════ */
 function viewInstitutions() {
-  const list = Object.keys(INSTITUTIONS).filter(k => k !== 'csv' && k !== 'community').map(k => ({ k, I: INSTITUTIONS[k], held: recsOf(k).length })).filter(x => x.held).sort((a, b) => b.held - a.held);
+  const list = Object.keys(INSTITUTIONS).filter(k => k !== 'csv' && k !== 'community').map(k => ({ k, I: INSTITUTIONS[k], held: recsOf(k).length })).filter(x => x.held || x.I.added).sort((a, b) => b.held - a.held);
   return `<div class="wrap page">
     <h1>Institutions</h1>
     <p class="lead">The archives, museums and organizations that hold the records, and how to reach them.</p>
@@ -3060,22 +3090,59 @@ function adminSuggestions() {
     </article>`).join('')}`;
 }
 
-function adminInstitutions() {
-  const keys = Object.keys(INSTITUTIONS).filter(k => k !== 'csv');
-  onMount(() => $$('form[data-inst]').forEach(f => f.onsubmit = e => {
-    e.preventDefault();
-    const k = f.dataset.inst, d = Object.fromEntries(new FormData(f));
-    INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
-    logActivity(`Updated visitor details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); render();
-  }));
-  return `<p class="lead">Keep visitor details current. These appear on every record the institution holds.</p>
-    ${keys.map(k => { const I = INSTITUTIONS[k]; return `<details class="rev"><summary><b>${h(I.name)}</b> <span class="meta">${plural(recsOf(k).length, 'record')}${INST_EDITS[k] ? ' · edited' : ''}</span></summary>
-      <form class="form" data-inst="${k}">
-        <label>Visitor address<input name="address" value="${h(I.address || '')}"></label>
-        <label>Website<input name="web" type="url" value="${h(I.web || '')}"></label>
-        <label>How to access<textarea name="access" rows="2">${h(I.access || '')}</textarea></label>
-        <button class="btn btn-secondary">Save</button>
-      </form></details>`; }).join('')}`;
+function adminInstitutions(p) {
+  const keys = Object.keys(INSTITUTIONS).filter(k => k !== 'csv').sort((a, b) => recsOf(b).length - recsOf(a).length);
+  const placeOpts = sel => `<option value="">None</option>` + Object.keys(PLACES).filter(id => PLACES[id].lat != null).sort((a, b) => PLACES[a].name.localeCompare(PLACES[b].name))
+    .map(id => `<option value="${id}" ${sel === id ? 'selected' : ''}>${h(PLACES[id].name)}</option>`).join('');
+  // one form layout for both "edit" and "add"
+  const fields = (I = {}) => `
+    <label>Visitor address<input name="address" value="${h(I.address || '')}" placeholder="Street, town, province"></label>
+    <div class="coord-row">
+      <label>Latitude<input name="lat" inputmode="decimal" value="${h(I.lat ?? '')}" placeholder="e.g. 44.6488"></label>
+      <label>Longitude<input name="lng" inputmode="decimal" value="${h(I.lng ?? '')}" placeholder="e.g. -63.5752"></label>
+    </div>
+    <p class="meta">With latitude and longitude the map pin sits on the building. Without them it falls back to the community point below.</p>
+    <label>Community (fallback pin)<select name="place">${placeOpts(I.place)}</select></label>
+    <label>Website<input name="web" type="url" value="${h(I.web || '')}" placeholder="https://"></label>
+    <label>How to access<textarea name="access" rows="2">${h(I.access || '')}</textarea></label>`;
+  const check = d => {
+    const has = d.lat !== '' || d.lng !== '';
+    const lat = parseFloat(d.lat), lng = parseFloat(d.lng);
+    if (has && !(Number.isFinite(lat) && Number.isFinite(lng) && Math.abs(lat) <= 90 && Math.abs(lng) <= 180)) return 'Latitude must be between -90 and 90 and longitude between -180 and 180, both filled in.';
+    return '';
+  };
+  onMount(() => {
+    $$('form[data-inst]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const k = f.dataset.inst, d = Object.fromEntries(new FormData(f)), err = check(d);
+      if (err) { $('.form-err', f).textContent = err; $('.form-err', f).hidden = false; return; }
+      INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
+      logActivity(`Updated details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
+    });
+    const nf = $('#inst-new');
+    nf.onsubmit = e => {
+      e.preventDefault();
+      const d = Object.fromEntries(new FormData(nf)), name = d.name.trim();
+      const err = !name ? 'Give the institution a name.' : check(d);
+      if (err) { $('.form-err', nf).textContent = err; $('.form-err', nf).hidden = false; return; }
+      const k = 'inst-' + norm(name).replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '');
+      if (INSTITUTIONS[k]) { $('.form-err', nf).textContent = 'An institution with that name already exists.'; $('.form-err', nf).hidden = false; return; }
+      INST_EDITS[k] = { ...d, name, kind: d.kind.trim() || 'Institution', added: true };
+      logActivity(`Added institution ${name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
+    };
+  });
+  return `<p class="lead">Keep visitor details current. They appear on every record the institution holds, and the address links to its pin on the map.</p>
+    ${p.saved && INSTITUTIONS[p.saved] ? `<p class="notice">${statusWord('approved')} Saved ${h(INSTITUTIONS[p.saved].name)}. ${hasPin(p.saved) ? `<a href="${href('map', { focus: 'i:' + p.saved })}">See it on the map</a>` : 'No map pin yet: add coordinates or a community.'}</p>` : ''}
+    ${keys.map(k => { const I = INSTITUTIONS[k]; const pos = instLatLng(k); return `<details class="rev" ${p.saved === k ? 'open' : ''}><summary><b>${h(I.name)}</b> <span class="meta">${plural(recsOf(k).length, 'record')} · ${pos ? (pos.exact ? 'exact pin' : 'community pin') : 'no pin'}${INST_EDITS[k] ? ' · edited' : ''}</span></summary>
+      <form class="form" data-inst="${k}">${fields(I)}<p class="notice notice-rejected form-err" hidden></p><button class="btn btn-secondary">Save</button></form></details>`; }).join('')}
+    <section class="inst-new"><h2>Add an institution</h2>
+      <form class="form" id="inst-new">
+        <label>Name<input name="name" required></label>
+        <label>Kind<input name="kind" placeholder="e.g. Community museum, University archives"></label>
+        ${fields()}
+        <p class="notice notice-rejected form-err" hidden></p>
+        <button class="btn btn-primary">Add institution</button>
+      </form></section>`;
 }
 
 /* ---------- CSV import: a new institution can join with a spreadsheet ---------- */

@@ -176,6 +176,7 @@ function render() {
   document.body.classList.toggle('is-admin', view === 'admin');
   $('#hdr-search').hidden = !view || view === 'search';
   if ($('#hdr-q')) $('#hdr-q').value = '';
+  if ($('#hdr-suggest')) $('#hdr-suggest').hidden = true;
   MOUNTS.forEach(f => f());
   if (!params.keep) window.scrollTo(0, 0);
 }
@@ -185,5 +186,6 @@ function boot() {
   buildIndex();
   const hq = $('#hdr-q');
   $('#hdr-search').onsubmit = e => { e.preventDefault(); if (hq.value.trim()) go('search', { q: hq.value.trim() }); };
+  attachSuggest(hq, $('#hdr-suggest'));
   render();
 }

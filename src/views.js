@@ -18,7 +18,7 @@ const span = recs => { const ys = recs.flatMap(r => [r.dateStart, r.dateEnd]).fi
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const facetKeyFor = t => ({ person: 'person', place: 'place', organization: 'org', event: 'event', topic: 'topic', institution: 'holder' }[t] || 'topic');
 /* "See it on the map" links: only when the place/institution really has a pin */
-const hasPin = k => PLACES[INSTITUTIONS[k]?.place]?.lat != null;
+const hasPin = k => !!instLatLng(k);
 const addressLink = k => { const I = INSTITUTIONS[k]; if (!I) return ''; const t = h(I.address || 'Address not confirmed');
   return hasPin(k) ? `<a class="addr" href="${href('map', { focus: 'i:' + k })}" title="Show ${h(I.name)} on the map">${t}</a>` : t; };
 const ext = (url, label) => `<a class="ext" href="${h(url)}" target="_blank" rel="noopener">${label}<span aria-hidden="true"> ↗</span></a>`;
@@ -104,21 +104,33 @@ function bindSearchBox() {
   $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
   const inp = $('#q', f), box = $('#suggest', f);
   if (mode !== 'search') return;
-  // live suggestions: matching pages (people, places, topics…) and matching records
+  attachSuggest(inp, box);
+}
+
+/* ---------- live suggestions under any search box ----------
+   Used by the main search box and the header search.
+   Click (or Enter on a highlighted row) goes straight to that page/record. */
+function attachSuggest(inp, box) {
+  if (!inp || !box) return;
   let active = -1;
   const mark = (text, q) => { const i = norm(text).indexOf(norm(q)); return i < 0 ? h(text) : h(text.slice(0, i)) + '<b>' + h(text.slice(i, i + q.length)) + '</b>' + h(text.slice(i + q.length)); };
   const close = () => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); active = -1; };
+  const open = target => { close(); inp.blur(); location.hash = target; };
+  inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-controls', box.id);
   inp.oninput = () => {
     const q = inp.value.trim();
     if (q.length < 2) { close(); return; }
     const pages = entityMatches(q, 5);
     const recs = runSearch({ q }).slice(0, 4);
     if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; return; }
-    box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)} · ${plural(x.count, 'record')}</span></a>`).join('')}` : '')
+    box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)}${x.count ? ' · ' + plural(x.count, 'record') : ''}</span></a>`).join('')}` : '')
       + (recs.length ? `<p class="sug-h">Records</p>${recs.map(r => `<a role="option" href="${href('r/' + r.id)}"><span>${mark(r.title, q)}</span><span class="meta">${h(r.dateText || '')}</span></a>`).join('')}` : '')
       + `<a role="option" class="sug-all" href="${href('search', { q })}">See all results for “${h(q)}”</a>`;
     box.hidden = false; inp.setAttribute('aria-expanded', 'true'); active = -1;
   };
+  // pressing the mouse on the list must not blur the input (that used to close the list before the click landed)
+  box.onmousedown = e => e.preventDefault();
+  box.onclick = e => { const a = e.target.closest('a[role="option"]'); if (!a) return; e.preventDefault(); open(a.getAttribute('href')); };
   inp.onkeydown = e => {
     const opts = $$('a[role="option"]', box);
     if (box.hidden || !opts.length) return;
@@ -127,11 +139,11 @@ function bindSearchBox() {
       active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
       opts.forEach((o, i) => o.classList.toggle('on', i === active));
       opts[active].scrollIntoView({ block: 'nearest' });
-    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.hash = opts[active].getAttribute('href'); }
+    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); open(opts[active].getAttribute('href')); }
     else if (e.key === 'Escape') close();
   };
   inp.onfocus = () => { if (inp.value.trim().length >= 2) inp.oninput(); };
-  inp.onblur = () => setTimeout(close, 180);
+  inp.onblur = () => setTimeout(close, 150);
 }
 
 /* ═══ BROWSE ═══════════════════════════════════════════════════════ */
@@ -304,7 +316,7 @@ function viewMap(_, p) {
 
 /* ═══ INSTITUTIONS ═════════════════════════════════════════════════ */
 function viewInstitutions() {
-  const list = Object.keys(INSTITUTIONS).filter(k => k !== 'csv' && k !== 'community').map(k => ({ k, I: INSTITUTIONS[k], held: recsOf(k).length })).filter(x => x.held).sort((a, b) => b.held - a.held);
+  const list = Object.keys(INSTITUTIONS).filter(k => k !== 'csv' && k !== 'community').map(k => ({ k, I: INSTITUTIONS[k], held: recsOf(k).length })).filter(x => x.held || x.I.added).sort((a, b) => b.held - a.held);
   return `<div class="wrap page">
     <h1>Institutions</h1>
     <p class="lead">The archives, museums and organizations that hold the records, and how to reach them.</p>

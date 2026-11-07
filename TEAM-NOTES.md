@@ -68,6 +68,15 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 | Suggestions under the search box | Typing 2+ letters shows matching pages and records right under the box, with the match in bold. Arrow keys + Enter work; "See all results" at the bottom. Matches by word start, so "pre" finds Preston, not "Supreme Court" |
 | Tagline capitalised | Kept David's "Our Stories, Connected" in the source too |
 
+## 4c. Round 4 changes
+
+| Feedback | What changed |
+|---|---|
+| Clicking a suggestion did nothing | Cause: pressing the mouse took focus off the search box, which closed the list before the click finished (a normal-speed click lost; only very fast clicks worked). The list now keeps focus while you press, and clicking a row goes straight to that page or record |
+| Suggestions in the header search too | One shared suggestion component now powers every search box: home, search page and header |
+| Add institutions in Admin; precise pins | *Admin → Institutions*: edit or **add** an institution with address, **latitude/longitude**, a fallback community, website and access notes. With coordinates the pin sits on the building ("Pin = exact location"); without, it falls back to the community point as before. Address links open the map on that exact pin. Coordinates are validated |
+| | Note: none of the 11 institutions have exact coordinates yet. Enter them in Admin (they save in the browser) or tell Claude/the team to add them to `src/authority.js` as `lat`/`lng` so everyone gets them |
+
 ## 5. Round 1 changes (prototype → full build)
 
 | Prototype (v5.x) | Full build | Why |
