@@ -141,8 +141,9 @@ function entityMatches(q, limit = 8) {
   for (const id of all) {
     const n = node(id); if (!ENT_RECS.get(id)?.size && !n.statements) continue;
     const names = [n.name, ...(n.aliases || [])].map(norm);
-    const rank = names.some(x => x === qn) ? 0 : names.some(x => x.startsWith(qn)) ? 1 : names.some(x => x.includes(qn)) ? 2
-      : tok(q).every(t => names.some(x => x.includes(t))) ? 3 : 99;
+    const words = names.flatMap(x => x.split(/[^a-z0-9]+/));
+    const rank = names.some(x => x === qn) ? 0 : names.some(x => x.startsWith(qn)) ? 1 : words.some(w => w.startsWith(qn)) ? 2 : (qn.length >= 4 && names.some(x => x.includes(qn))) ? 2.5
+      : tok(q).every(t => words.some(w => w.startsWith(t))) ? 3 : 99;
     if (rank < 99) out.push({ id, n, rank, count: ENT_RECS.get(id)?.size || 0 });
   }
   return out.sort((a, b) => a.rank - b.rank || b.count - a.count).slice(0, limit);

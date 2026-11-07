@@ -774,9 +774,23 @@ a.tag:hover { border-color: var(--border-strong); text-decoration: none; }
 .sbox-row input { flex: 1; min-width: 0; height: 56px; padding: 0 var(--space-4); font: 400 18px var(--font-sans); color: var(--ink); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); }
 .sbox-row .btn { height: 56px; padding: 0 28px; }
 .sbox-ex { margin: var(--space-3) 0 0; color: var(--ink-muted); font-size: 15px; }
-.suggest { position: absolute; left: 0; right: 0; top: 96px; background: var(--surface-raised); border: 1px solid var(--border); border-radius: var(--radius-md); box-shadow: var(--shadow-pop); z-index: 50; overflow: hidden; }
-.suggest a { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) var(--space-4); color: var(--ink); text-decoration: none; }
-.suggest a:hover, .suggest a:focus { background: var(--surface-sunk); }
+.sbox-field { position: relative; flex: 1; min-width: 0; display: flex; }
+.sbox-field input { width: 100%; }
+.suggest { position: absolute; left: 0; right: 0; top: calc(100% + 4px); background: var(--surface-raised); border: 1px solid var(--border-strong); border-radius: var(--radius-sm); box-shadow: var(--shadow-pop); z-index: 1100; max-height: 420px; overflow: auto; padding: var(--space-2) 0; }
+.suggest a { display: flex; justify-content: space-between; align-items: baseline; gap: var(--space-4); padding: var(--space-2) var(--space-4); color: var(--ink); text-decoration: none; font-size: 16px; }
+.suggest a .meta { flex: none; }
+.suggest a b { font-weight: 700; }
+.suggest a:hover, .suggest a.on { background: var(--surface-sunk); }
+.sug-h { margin: var(--space-2) var(--space-4) var(--space-1); font-size: 13px; font-weight: 700; color: var(--ink-muted); }
+.sug-all { border-top: 1px solid var(--border); margin-top: var(--space-2); padding-top: var(--space-3) !important; color: var(--red) !important; font-weight: 600; }
+.sug-none { margin: var(--space-2) var(--space-4); color: var(--ink-muted); }
+.addr { color: inherit; text-decoration: underline; text-decoration-color: var(--border-strong); }
+.addr:hover { color: var(--red); text-decoration-color: currentColor; }
+.card-link { color: var(--ink); text-decoration: none; }
+.card-link:hover { color: var(--red); text-decoration: underline; }
+.mg-detail { padding: 0 var(--space-4); min-height: 64px; }
+.mg-detail p { margin: 0 0 var(--space-1); font-size: 15px; }
+.mg-name { font-family: var(--font-serif); font-size: 17px !important; font-weight: 600; }
 
 /* ---------- carousel ---------- */
 .carousel { container-type: inline-size; }
@@ -959,9 +973,8 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
   #nav a { font-size: 14px; }
   #hdr-search { width: 100%; } #hdr-search input { flex: 1; width: auto; }
   .hero { padding: var(--space-12) 0; }
-  .sbox-row { flex-direction: column; } .sbox-row input { flex: none; width: 100%; height: 52px; } .sbox-row .btn { height: 48px; }
+  .sbox-row { flex-direction: column; } .sbox-row input { flex: none; width: 100%; height: 52px; } .sbox-field { flex: none; } .sbox-row .btn { height: 48px; }
   .stat-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
-  .suggest { top: 92px; }
   .slide { padding: var(--space-6); }
   .rrow { gap: var(--space-4); } .rrow-img { width: 72px; height: 72px; }
   .facts { grid-template-columns: 1fr; gap: var(--space-1); } .facts dd { margin-bottom: var(--space-3); }
@@ -1557,11 +1570,11 @@ const FEATURED = [
   { id: 'africville', kicker: 'Community · Halifax', img: '' },
   { id: 'viola-desmond', kicker: 'Person · Civil rights', img: '' },
   { id: 'no2cb', kicker: 'Organization · First World War', img: 'https://www.warmuseum.ca/ke/_resources/5401246/19920166-2273-cmhsize-small.jpg', imgCredit: 'Cap badge, Canadian War Museum 19920166-2273', imgRecord: 'cwm-1075595' },
-  { id: 'preston', kicker: 'Community · Halifax County', img: 'https://archives.novascotia.ca/img/200402285.jpg', imgCredit: 'House at North Preston, 1934 — Nova Scotia Archives', imgRecord: 'nsa-africanns-174' },
+  { id: 'preston', kicker: 'Community · Halifax County', img: 'https://archives.novascotia.ca/images/africanns/200402256.jpg', imgCredit: 'Group with ox cart, Preston, ca. 1886 — Nova Scotia Archives', imgRecord: 'nsa-africanns-145' },
   { id: 'black-loyalists', kicker: 'Topic · 1783–1792', img: '' },
   { id: 'upper-hammonds-plains', kicker: 'Community · 1949 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402295.jpg', imgCredit: 'Choir practice, Emmanuel Baptist Church, 1949 — Nova Scotia Archives', imgRecord: 'nsa-africanns-184' },
   { id: 'black-refugees', kicker: 'Topic · 1813–1834', img: '' },
-  { id: 'guysborough', kicker: 'Place · ca. 1900 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402273.jpg', imgCredit: 'Eliza Brody, Sunnyville, ca. 1905 — Nova Scotia Archives', imgRecord: 'nsa-africanns-162' }
+  { id: 'guysborough', kicker: 'Place · ca. 1900 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402268.jpg', imgCredit: 'Group of men in front of a barn, Guysborough, 1895 — Nova Scotia Archives', imgRecord: 'nsa-africanns-157' }
 ];
 
 
@@ -1924,7 +1937,8 @@ function createGraph(canvas, opts) {
       ctx.lineWidth = on ? 2 : (e.kind === 'rel' ? 1.3 : 0.8);
       if (e.kind !== 'rel') ctx.setLineDash([3, 3]); else ctx.setLineDash([]);
       ctx.stroke();
-      if (on && e.label && view.k > .55) {
+      const focusNode = hover || pinned;
+      if (on && e.label && view.k > .55 && !(opts.centreId && focusNode && focusNode.id === opts.centreId)) {
         ctx.setLineDash([]);
         ctx.font = '11px "Google Sans Flex", system-ui, sans-serif'; ctx.fillStyle = '#7a5c10';
         ctx.fillText(e.label, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4);
@@ -2187,8 +2201,9 @@ function entityMatches(q, limit = 8) {
   for (const id of all) {
     const n = node(id); if (!ENT_RECS.get(id)?.size && !n.statements) continue;
     const names = [n.name, ...(n.aliases || [])].map(norm);
-    const rank = names.some(x => x === qn) ? 0 : names.some(x => x.startsWith(qn)) ? 1 : names.some(x => x.includes(qn)) ? 2
-      : tok(q).every(t => names.some(x => x.includes(t))) ? 3 : 99;
+    const words = names.flatMap(x => x.split(/[^a-z0-9]+/));
+    const rank = names.some(x => x === qn) ? 0 : names.some(x => x.startsWith(qn)) ? 1 : words.some(w => w.startsWith(qn)) ? 2 : (qn.length >= 4 && names.some(x => x.includes(qn))) ? 2.5
+      : tok(q).every(t => words.some(w => w.startsWith(t))) ? 3 : 99;
     if (rank < 99) out.push({ id, n, rank, count: ENT_RECS.get(id)?.size || 0 });
   }
   return out.sort((a, b) => a.rank - b.rank || b.count - a.count).slice(0, limit);
@@ -2288,6 +2303,11 @@ function mountRecordsMap(el, recs, opt = {}) {
   const holders = new Map();
   for (const r of recs) { const k = r.holder; if (!holders.has(k)) holders.set(k, []); holders.get(k).push(r); }
   if (opt.institutionsOnly) for (const k of Object.keys(INSTITUTIONS)) holders.set(k, recsOf(k));
+  // opt.focus = 'i:<institution>' or 'p:<place>': make sure it is on the map, then open it
+  const [fk, fid] = String(opt.focus || '').split(':');
+  if (fk === 'i' && INSTITUTIONS[fid] && !holders.has(fid)) holders.set(fid, recsOf(fid));
+  if (fk === 'p' && PLACES[fid]?.lat != null && !byPlace.has(fid)) byPlace.set(fid, recsOf(fid));
+  const markers = {};
   // lines first (underneath)
   if (opt.lines) for (const [p, rs] of byPlace) {
     const P = PLACES[p];
@@ -2300,6 +2320,7 @@ function mountRecordsMap(el, recs, opt = {}) {
       <ul>${rs.slice(0, 6).map(r => `<li><a href="${href('r/' + r.id)}">${h(r.title.slice(0, 70))}</a> <span class="muted">${h(r.dateText || '')}</span></li>`).join('')}</ul>
       ${rs.length > 6 ? `<a href="${href('search', { place: p })}">All ${rs.length} →</a>` : ''}${P.note ? `<div class="meta">${h(P.note)}</div>` : ''}</div>`);
     m.bindTooltip(`${P.name} · ${rs.length}`);
+    markers['p:' + p] = m;
     bounds.push([P.lat, P.lng]);
   }
   // institutions (squares)
@@ -2309,7 +2330,7 @@ function mountRecordsMap(el, recs, opt = {}) {
     const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (!Number.isFinite(ip?.lat) || !Number.isFinite(ip?.lng)) continue;
     const off = placed.get(I.place) || 0; placed.set(I.place, off + 1);   // nudge institutions sharing a city
     const ll = [ip.lat + off * 0.012, ip.lng + off * 0.018];
-    L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
+    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
       .bindTooltip(I.name);
     bounds.push(ll);
   }
@@ -2319,7 +2340,9 @@ function mountRecordsMap(el, recs, opt = {}) {
   else if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 11 });
   else if (bounds.length === 1) map.setView(bounds[0], 10);
   else map.setView([44.9, -63.5], 7);
-  requestAnimationFrame(() => { if (active) map.invalidateSize(); });
+  const fm = markers[opt.focus];
+  if (fm) map.setView(fm.getLatLng(), 12);
+  requestAnimationFrame(() => { if (active) { map.invalidateSize(); if (fm) fm.openPopup(); } });
   const sizeTimer = setTimeout(() => { if (active) map.invalidateSize(); }, 180);
   CLEANUP.push(() => clearTimeout(sizeTimer));
 }
@@ -2338,16 +2361,20 @@ function mountRecordsMap(el, recs, opt = {}) {
    window's, which is why opening DevTools no longer changes it.        */
 function mountCarousel() {
   const el = $('#carousel'); if (!el) return;
-  const items = FEATURED.filter(f => node(f.id) && recsOf(f.id).length);
+  const items = FEATURED.filter(f => node(f.id) && recsOf(f.id).length);  // see the image check below
   let i = 0, timer = 0;
-  el.innerHTML = `<div class="car-track">${items.map((f, k) => {
+  el.innerHTML = `<div class="car-track">${items.map((feat, k) => {
+    let f = feat;
     const n = node(f.id), recs = recsOf(f.id), st = (n.statements || [])[0];
+    // only show a picture that really belongs to this entity, and describe THAT record
+    const imgRec = f.imgRecord && recs.find(r => r.id === f.imgRecord);
+    if (!imgRec) f = { ...f, img: '' };
     const quote = st ? (st[0].length > 240 ? st[0].slice(0, 238).replace(/\s+\S*$/, '') + '…' : st[0]) : '';
     return `<a class="slide ${k === 0 ? 'on' : ''} ${f.img ? 'with-img' : 'with-list'}" href="${href('e/' + f.id)}" aria-hidden="${k !== 0}" ${k !== 0 ? 'tabindex="-1"' : ''}>
       <div class="slide-text">
         <p class="meta">${h(f.kicker)}</p>
         <h3>${h(n.name)}</h3>
-        ${quote ? `<p class="slide-quote">“${h(quote)}”</p><p class="meta">${h(st[1])}</p>` : `<p class="slide-quote">${h(recs[0].title)}</p>`}
+        ${quote ? `<p class="slide-quote">“${h(quote)}”</p><p class="meta">${h(st[1])}</p>` : `<p class="slide-quote">${h((imgRec || recs[0]).title)}</p><p class="meta">${h((imgRec || recs[0]).dateText || 'Date not recorded')} · ${h(instName((imgRec || recs[0]).holder))}</p>`}
         <p class="slide-foot">${plural(recs.length, 'record')} from ${plural(new Set(recs.map(r => r.holder)).size, 'institution')} <span class="slide-go">Explore</span></p>
       </div>
       ${!f.img ? `<div class="slide-list"><p class="meta">In the records</p><ul>${[...new Map(recs.filter(r => r.dateStart != null).concat(recs).map(r => [r.title, r])).values()].slice(0, 3).map(r => `<li>${h(r.title)}<span class="meta">${h(r.dateText || 'Date not recorded')} · ${h(instName(r.holder))}</span></li>`).join('')}</ul></div>` : ''}
@@ -2389,9 +2416,9 @@ function carouselShouldPause(el) {
    same records (the number is how many).                               */
 function neighboursOf(id, limit = 14) {
   const out = new Map();
-  for (const [a, label, b] of RELATIONS) {
-    if (a === id && node(b)) out.set(b, { id: b, kind: 'rel', label, w: 99 });
-    if (b === id && node(a)) out.set(a, { id: a, kind: 'rel', label, w: 99 });
+  for (const [a, label, b, el, eu] of RELATIONS) {
+    if (a === id && node(b)) out.set(b, { id: b, kind: 'rel', label, w: 99, el, eu, dir: 'out' });
+    if (b === id && node(a)) out.set(a, { id: a, kind: 'rel', label, w: 99, el, eu, dir: 'in' });
   }
   for (const [k, c] of CO) {
     const [a, b] = k.split('|'); const other = a === id ? b : b === id ? a : null;
@@ -2413,7 +2440,7 @@ function mountMiniGraph(el, opt) {
     nbrs = [...count].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, c]) => ({ id, kind: 'co', label: plural(c, 'result'), w: c }));
   }
   if (!nbrs.length) { el.innerHTML = '<p class="meta">Nothing is linked to this yet.</p>'; return; }
-  el.innerHTML = '<canvas aria-label="Connections graph"></canvas><ul class="sr-only"></ul>';
+  el.innerHTML = '<canvas aria-label="Connections graph"></canvas><div class="mg-detail" aria-live="polite"></div><ul class="sr-only"></ul>';
   // screen-reader / no-canvas fallback: the same connections as a list
   $('ul', el).innerHTML = nbrs.map(x => `<li><a href="${href('e/' + x.id)}">${h(nameOf(x.id))}</a> (${h(x.label)})</li>`).join('');
   const canvas = $('canvas', el);
@@ -2426,8 +2453,22 @@ function mountMiniGraph(el, opt) {
   const edges = nbrs.map(x => ({ s: centre.id, t: x.id, kind: x.kind === 'rel' ? 'rel' : 'co', w: x.kind === 'rel' ? 2 : 1, label: x.label }));
   const g = createGraph(canvas, {
     nodes, edges, fixed: true, allLabels: true, labelMax: 22, fitPad: 190,
-    onClick: n => { if (n && n.id !== '__q' && n.id !== centre.id) go('e/' + n.id); }
+    centreId: centre.id,
+    // click an outer node → show how it connects (click the centre or empty space to clear)
+    onClick: n => showDetail(n && n.id !== centre.id ? n : null),
+    onOpen: n => { if (n && n.id !== '__q') go('e/' + n.id); }
   });
+  const box = $('.mg-detail', el);
+  function showDetail(n) {
+    if (!n) { box.innerHTML = '<p class="meta">Select a name to see how it connects.</p>'; return; }
+    const x = nbrs.find(y => y.id === n.id), N = node(n.id);
+    const how = x.kind === 'rel'
+      ? (x.dir === 'out' ? `${h(centre.label)} ${h(x.label)} ${h(N.name)}` : `${h(N.name)} ${h(x.label)} ${h(centre.label)}`)
+      : `Appears with ${h(centre.label)} in ${h(x.label)}`;
+    const src = x.kind === 'rel' && x.eu ? `<p class="meta">Source: ${/^https?:/.test(x.eu) ? ext(x.eu, h(x.el)) : `<a href="${href('r/' + x.eu)}">${h(x.el)}</a>`}</p>` : '';
+    box.innerHTML = `<p class="mg-name">${h(N.name)} <span class="meta">${typeLabel(N.type)}</span></p><p>${how}.</p>${src}<a class="ext" href="${href('e/' + n.id)}">Open ${h(N.name)}</a>`;
+  }
+  showDetail(null);
   CLEANUP.push(() => g.destroy());
 }
 
@@ -2604,6 +2645,10 @@ const dateLabel = r => r.dateText ? h(r.dateText) : 'Date not recorded';
 const span = recs => { const ys = recs.flatMap(r => [r.dateStart, r.dateEnd]).filter(y => y != null); return ys.length ? (Math.min(...ys) === Math.max(...ys) ? `${Math.min(...ys)}` : `${Math.min(...ys)}–${Math.max(...ys)}`) : 'undated'; };
 const plural = (n, one, many = one + 's') => `${n} ${n === 1 ? one : many}`;
 const facetKeyFor = t => ({ person: 'person', place: 'place', organization: 'org', event: 'event', topic: 'topic', institution: 'holder' }[t] || 'topic');
+/* "See it on the map" links: only when the place/institution really has a pin */
+const hasPin = k => PLACES[INSTITUTIONS[k]?.place]?.lat != null;
+const addressLink = k => { const I = INSTITUTIONS[k]; if (!I) return ''; const t = h(I.address || 'Address not confirmed');
+  return hasPin(k) ? `<a class="addr" href="${href('map', { focus: 'i:' + k })}" title="Show ${h(I.name)} on the map">${t}</a>` : t; };
 const ext = (url, label) => `<a class="ext" href="${h(url)}" target="_blank" rel="noopener">${label}<span aria-hidden="true"> ↗</span></a>`;
 
 function recordRow(r) {
@@ -2631,7 +2676,7 @@ function viewHome() {
   return `
   <section class="hero"><div class="wrap">
     <h1 class="display">Find Black history across Canada</h1>
-    <p class="script">our stories, connected</p>
+    <p class="script">Our Stories, Connected</p>
     <p class="hero-lede">Search records held by archives, museums and community organizations. Every result takes you to the institution that holds the original.</p>
     ${searchBox('')}
     <p class="meta hero-count">${RECORDS.length} records from ${nInst} institutions</p>
@@ -2665,11 +2710,14 @@ function searchBox(q, mode = 'search') {
       <button type="button" role="tab" data-mode="ask" aria-selected="${mode === 'ask'}">Ask a question</button>
     </div>
     <div class="sbox-row">
-      <label class="sr-only" for="q">${mode === 'ask' ? 'Your question' : 'Search records'}</label>
-      <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : 'People, places, communities, subjects, years'}">
+      <div class="sbox-field">
+        <label class="sr-only" for="q">${mode === 'ask' ? 'Your question' : 'Search records'}</label>
+        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : 'People, places, communities, subjects, years'}"
+          ${mode === 'search' ? 'role="combobox" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false"' : ''}>
+        <div id="suggest" class="suggest" role="listbox" hidden></div>
+      </div>
       <button class="btn btn-primary" type="submit">${mode === 'ask' ? 'Ask' : 'Search'}</button>
     </div>
-    <div id="suggest" class="suggest" hidden></div>
     <p class="sbox-ex">Try ${ex.map(x => `<button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button>`).join(', ')}</p>
   </form>`;
 }
@@ -2683,13 +2731,35 @@ function bindSearchBox() {
   f.onsubmit = e => { e.preventDefault(); const q = $('#q', f).value.trim(); if (!q) return; mode === 'ask' ? go('search', { ask: q }) : go('search', { q }); };
   $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
   const inp = $('#q', f), box = $('#suggest', f);
+  if (mode !== 'search') return;
+  // live suggestions: matching pages (people, places, topics…) and matching records
+  let active = -1;
+  const mark = (text, q) => { const i = norm(text).indexOf(norm(q)); return i < 0 ? h(text) : h(text.slice(0, i)) + '<b>' + h(text.slice(i, i + q.length)) + '</b>' + h(text.slice(i + q.length)); };
+  const close = () => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); active = -1; };
   inp.oninput = () => {
-    if (mode !== 'search') return;
-    const m = entityMatches(inp.value, 5);
-    box.hidden = !m.length;
-    box.innerHTML = m.map(x => `<a href="${href('e/' + x.id)}"><span>${h(x.n.name)}</span><span class="meta">${typeLabel(x.n.type)} · ${plural(x.count, 'record')}</span></a>`).join('');
+    const q = inp.value.trim();
+    if (q.length < 2) { close(); return; }
+    const pages = entityMatches(q, 5);
+    const recs = runSearch({ q }).slice(0, 4);
+    if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; return; }
+    box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)} · ${plural(x.count, 'record')}</span></a>`).join('')}` : '')
+      + (recs.length ? `<p class="sug-h">Records</p>${recs.map(r => `<a role="option" href="${href('r/' + r.id)}"><span>${mark(r.title, q)}</span><span class="meta">${h(r.dateText || '')}</span></a>`).join('')}` : '')
+      + `<a role="option" class="sug-all" href="${href('search', { q })}">See all results for “${h(q)}”</a>`;
+    box.hidden = false; inp.setAttribute('aria-expanded', 'true'); active = -1;
   };
-  inp.onblur = () => setTimeout(() => box.hidden = true, 200);
+  inp.onkeydown = e => {
+    const opts = $$('a[role="option"]', box);
+    if (box.hidden || !opts.length) return;
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      e.preventDefault();
+      active = (active + (e.key === 'ArrowDown' ? 1 : -1) + opts.length) % opts.length;
+      opts.forEach((o, i) => o.classList.toggle('on', i === active));
+      opts[active].scrollIntoView({ block: 'nearest' });
+    } else if (e.key === 'Enter' && active >= 0) { e.preventDefault(); location.hash = opts[active].getAttribute('href'); }
+    else if (e.key === 'Escape') close();
+  };
+  inp.onfocus = () => { if (inp.value.trim().length >= 2) inp.oninput(); };
+  inp.onblur = () => setTimeout(close, 180);
 }
 
 /* ═══ BROWSE ═══════════════════════════════════════════════════════ */
@@ -2747,7 +2817,7 @@ function viewSearch(_, p) {
         <section class="panel">
           <h2 class="h3">${focus ? `Connected to ${h(nameOf(focus))}` : p.q ? `Connected to “${h(p.q)}”` : 'Connections'}</h2>
           <div id="mini-graph" class="mini-graph"></div>
-          <p class="meta">Hover to see what's linked. Click a name to open it.</p>
+          
         </section>
         <section class="panel">
           <h2 class="h3">On the map</h2>
@@ -2773,12 +2843,12 @@ function viewEntity(id) {
   return `<div class="wrap page">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="${href('browse/' + (n.type === 'place' ? 'place' : n.type))}">${PLURAL[n.type] || 'Browse'}</a></nav>
     <h1>${h(n.name)}</h1>
-    <p class="meta lead-meta">${kind} · ${plural(recs.length, 'record')}${n.type === 'institution' ? '' : ' · ' + plural(holders.length, 'institution')} · ${span(recs)}</p>
+    <p class="meta lead-meta">${PLACES[id]?.lat != null ? `<a href="${href('map', { focus: 'p:' + id })}">See ${h(n.name)} on the map</a> · ` : ''}${kind} · ${plural(recs.length, 'record')}${n.type === 'institution' ? '' : ' · ' + plural(holders.length, 'institution')} · ${span(recs)}</p>
     <div class="two">
       <div>
         ${statements.length ? `<section class="quotes">${statements.map(([t, l, u]) => `<blockquote><p>“${h(t)}”</p><footer>${ext(u, h(l))}</footer></blockquote>`).join('')}</section>` : ''}
         ${n.note ? `<p>${h(n.note)}</p>` : ''}
-        ${n.type === 'institution' ? `<section class="panel"><h2 class="h3">Visiting</h2><p>${h(n.address || 'Visitor address not confirmed.')}</p><p class="meta">${h(n.access || '')}</p>${n.web ? ext(n.web, h(n.web.replace(/^https?:\/\//, ''))) : ''}</section>` : ''}
+        ${n.type === 'institution' ? `<section class="panel"><h2 class="h3">Visiting</h2><p>${n.address ? addressLink(id) : 'Visitor address not confirmed.'}</p><p class="meta">${h(n.access || '')}</p>${n.web ? ext(n.web, h(n.web.replace(/^https?:\/\//, ''))) : ''}</section>` : ''}
         <section class="section-sm">
           <div class="row-between"><h2>Records</h2>${recs.length ? `<a href="${href('search', { [facetKeyFor(n.type)]: id })}">Search within these</a>` : ''}</div>
           ${recs.length ? `<div class="rlist">${recs.slice(0, shown).map(recordRow).join('')}</div>
@@ -2792,7 +2862,7 @@ function viewEntity(id) {
           <div id="ent-graph" class="mini-graph"></div>
           ${rels.length ? `<details class="rels-d"><summary>Sources for these connections</summary><ul class="rels">${rels.map(([a, label, b, el, eu]) => `<li>${a === id ? '' : tag(a) + ' '}<span>${h(label)}</span>${b === id ? '' : ' ' + tag(b)}<span class="meta"> Source: ${/^https?:/.test(eu) ? ext(eu, h(el)) : `<a href="${href('r/' + eu)}">${h(el)}</a>`}</span></li>`).join('')}</ul></details>` : ''}
         </section>
-        ${holders.length && n.type !== 'institution' ? `<section class="panel"><h2 class="h3">Where to find it</h2>${holders.map(k => { const I = INSTITUTIONS[k]; return `<div class="where"><a href="${href('e/' + k)}">${h(I.name)}</a><p class="meta">${h(I.address || 'Address not confirmed')}</p></div>`; }).join('')}</section>` : ''}
+        ${holders.length && n.type !== 'institution' ? `<section class="panel"><h2 class="h3">Where to find it</h2>${holders.map(k => { const I = INSTITUTIONS[k]; return `<div class="where"><a href="${href('e/' + k)}">${h(I.name)}</a><p class="meta">${addressLink(k)}</p></div>`; }).join('')}</section>` : ''}
       </aside>
     </div>
     <section class="section-sm">
@@ -2834,7 +2904,7 @@ function viewRecord(id) {
           <p class="meta">Original metadata as harvested:</p><pre>${h(JSON.stringify(r.native, null, 2))}</pre></details>
       </div>
       <aside class="side">
-        ${I ? `<section class="panel"><h2 class="h3">Visit ${h(I.name)}</h2><p>${h(I.address || 'Visitor address not confirmed.')}</p><p class="meta">${h(I.access)}</p></section>` : ''}
+        ${I ? `<section class="panel"><h2 class="h3">Visit ${h(I.name)}</h2><p>${I.address ? addressLink(r.holder) : 'Visitor address not confirmed.'}</p><p class="meta">${h(I.access)}</p></section>` : ''}
         <section class="panel"><h2 class="h3">On the map</h2>${r.mapped.length ? '' : `<p class="meta">${r.places.length ? 'The place named is too broad to pin.' : 'No place recorded.'} Showing where it is held.</p>`}<div id="rec-map" class="map map-sm"></div></section>
         ${similar.length ? `<section class="panel"><h2 class="h3">Connected records</h2>${similar.map(([x]) => `<a class="sim" href="${href('r/' + x.id)}">${h(x.title)}<span class="meta">${h(x.dateText || 'Date not recorded')} · ${h(instName(x.holder))}</span></a>`).join('')}</section>` : ''}
       </aside>
@@ -2843,10 +2913,10 @@ function viewRecord(id) {
 
 /* ═══ FULL MAP (linked from pages, not in the nav) ═════════════════ */
 function viewMap(_, p) {
-  const recs = runSearch(p);
+  const recs = runSearch({ ...p, focus: '' });
   const topics = Object.keys(ENTITIES).filter(i => ENTITIES[i].type === 'topic' && ENT_RECS.get(i)?.size);
   onMount(() => {
-    mountRecordsMap($('#big-map'), recs, { lines: !!p.lines });
+    mountRecordsMap($('#big-map'), recs, { lines: !!p.lines, focus: p.focus });
     $('#map-topic').onchange = e => go('map', { ...p, topic: e.target.value });
     $('#map-lines').onchange = e => go('map', { ...p, lines: e.target.checked ? 1 : '' });
   });
@@ -2866,7 +2936,7 @@ function viewInstitutions() {
   return `<div class="wrap page">
     <h1>Institutions</h1>
     <p class="lead">The archives, museums and organizations that hold the records, and how to reach them.</p>
-    <div class="egrid wide">${list.map(({ k, I, held }) => `<a class="ecard" href="${href('e/' + k)}"><h2 class="h3">${h(I.name)}</h2><p class="meta">${h(I.kind)} · ${plural(held, 'record')}</p><p>${h(I.address || 'Visitor address not confirmed')}</p></a>`).join('')}</div>
+    <div class="egrid wide">${list.map(({ k, I, held }) => `<div class="ecard"><h2 class="h3"><a class="card-link" href="${href('e/' + k)}">${h(I.name)}</a></h2><p class="meta">${h(I.kind)} · ${plural(held, 'record')}</p><p>${addressLink(k)}</p></div>`).join('')}</div>
   </div>`;
 }
 

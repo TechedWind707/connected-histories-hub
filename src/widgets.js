@@ -10,16 +10,20 @@
    window's, which is why opening DevTools no longer changes it.        */
 function mountCarousel() {
   const el = $('#carousel'); if (!el) return;
-  const items = FEATURED.filter(f => node(f.id) && recsOf(f.id).length);
+  const items = FEATURED.filter(f => node(f.id) && recsOf(f.id).length);  // see the image check below
   let i = 0, timer = 0;
-  el.innerHTML = `<div class="car-track">${items.map((f, k) => {
+  el.innerHTML = `<div class="car-track">${items.map((feat, k) => {
+    let f = feat;
     const n = node(f.id), recs = recsOf(f.id), st = (n.statements || [])[0];
+    // only show a picture that really belongs to this entity, and describe THAT record
+    const imgRec = f.imgRecord && recs.find(r => r.id === f.imgRecord);
+    if (!imgRec) f = { ...f, img: '' };
     const quote = st ? (st[0].length > 240 ? st[0].slice(0, 238).replace(/\s+\S*$/, '') + '…' : st[0]) : '';
     return `<a class="slide ${k === 0 ? 'on' : ''} ${f.img ? 'with-img' : 'with-list'}" href="${href('e/' + f.id)}" aria-hidden="${k !== 0}" ${k !== 0 ? 'tabindex="-1"' : ''}>
       <div class="slide-text">
         <p class="meta">${h(f.kicker)}</p>
         <h3>${h(n.name)}</h3>
-        ${quote ? `<p class="slide-quote">“${h(quote)}”</p><p class="meta">${h(st[1])}</p>` : `<p class="slide-quote">${h(recs[0].title)}</p>`}
+        ${quote ? `<p class="slide-quote">“${h(quote)}”</p><p class="meta">${h(st[1])}</p>` : `<p class="slide-quote">${h((imgRec || recs[0]).title)}</p><p class="meta">${h((imgRec || recs[0]).dateText || 'Date not recorded')} · ${h(instName((imgRec || recs[0]).holder))}</p>`}
         <p class="slide-foot">${plural(recs.length, 'record')} from ${plural(new Set(recs.map(r => r.holder)).size, 'institution')} <span class="slide-go">Explore</span></p>
       </div>
       ${!f.img ? `<div class="slide-list"><p class="meta">In the records</p><ul>${[...new Map(recs.filter(r => r.dateStart != null).concat(recs).map(r => [r.title, r])).values()].slice(0, 3).map(r => `<li>${h(r.title)}<span class="meta">${h(r.dateText || 'Date not recorded')} · ${h(instName(r.holder))}</span></li>`).join('')}</ul></div>` : ''}
@@ -61,9 +65,9 @@ function carouselShouldPause(el) {
    same records (the number is how many).                               */
 function neighboursOf(id, limit = 14) {
   const out = new Map();
-  for (const [a, label, b] of RELATIONS) {
-    if (a === id && node(b)) out.set(b, { id: b, kind: 'rel', label, w: 99 });
-    if (b === id && node(a)) out.set(a, { id: a, kind: 'rel', label, w: 99 });
+  for (const [a, label, b, el, eu] of RELATIONS) {
+    if (a === id && node(b)) out.set(b, { id: b, kind: 'rel', label, w: 99, el, eu, dir: 'out' });
+    if (b === id && node(a)) out.set(a, { id: a, kind: 'rel', label, w: 99, el, eu, dir: 'in' });
   }
   for (const [k, c] of CO) {
     const [a, b] = k.split('|'); const other = a === id ? b : b === id ? a : null;
@@ -85,7 +89,7 @@ function mountMiniGraph(el, opt) {
     nbrs = [...count].sort((a, b) => b[1] - a[1]).slice(0, 10).map(([id, c]) => ({ id, kind: 'co', label: plural(c, 'result'), w: c }));
   }
   if (!nbrs.length) { el.innerHTML = '<p class="meta">Nothing is linked to this yet.</p>'; return; }
-  el.innerHTML = '<canvas aria-label="Connections graph"></canvas><ul class="sr-only"></ul>';
+  el.innerHTML = '<canvas aria-label="Connections graph"></canvas><div class="mg-detail" aria-live="polite"></div><ul class="sr-only"></ul>';
   // screen-reader / no-canvas fallback: the same connections as a list
   $('ul', el).innerHTML = nbrs.map(x => `<li><a href="${href('e/' + x.id)}">${h(nameOf(x.id))}</a> (${h(x.label)})</li>`).join('');
   const canvas = $('canvas', el);
@@ -98,7 +102,21 @@ function mountMiniGraph(el, opt) {
   const edges = nbrs.map(x => ({ s: centre.id, t: x.id, kind: x.kind === 'rel' ? 'rel' : 'co', w: x.kind === 'rel' ? 2 : 1, label: x.label }));
   const g = createGraph(canvas, {
     nodes, edges, fixed: true, allLabels: true, labelMax: 22, fitPad: 190,
-    onClick: n => { if (n && n.id !== '__q' && n.id !== centre.id) go('e/' + n.id); }
+    centreId: centre.id,
+    // click an outer node → show how it connects (click the centre or empty space to clear)
+    onClick: n => showDetail(n && n.id !== centre.id ? n : null),
+    onOpen: n => { if (n && n.id !== '__q') go('e/' + n.id); }
   });
+  const box = $('.mg-detail', el);
+  function showDetail(n) {
+    if (!n) { box.innerHTML = '<p class="meta">Select a name to see how it connects.</p>'; return; }
+    const x = nbrs.find(y => y.id === n.id), N = node(n.id);
+    const how = x.kind === 'rel'
+      ? (x.dir === 'out' ? `${h(centre.label)} ${h(x.label)} ${h(N.name)}` : `${h(N.name)} ${h(x.label)} ${h(centre.label)}`)
+      : `Appears with ${h(centre.label)} in ${h(x.label)}`;
+    const src = x.kind === 'rel' && x.eu ? `<p class="meta">Source: ${/^https?:/.test(x.eu) ? ext(x.eu, h(x.el)) : `<a href="${href('r/' + x.eu)}">${h(x.el)}</a>`}</p>` : '';
+    box.innerHTML = `<p class="mg-name">${h(N.name)} <span class="meta">${typeLabel(N.type)}</span></p><p>${how}.</p>${src}<a class="ext" href="${href('e/' + n.id)}">Open ${h(N.name)}</a>`;
+  }
+  showDetail(null);
   CLEANUP.push(() => g.destroy());
 }

@@ -58,6 +58,16 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 
 **Impeccable check** (`npx impeccable detect`, rendered pages): clean except `cream-palette`, which flags the brand's own paper background `#faf6ee`. That's a team brand decision; kept on purpose. Fixed along the way: nested cards, long lines, skipped heading levels, orphan words.
 
+## 4b. Round 3 changes (7 Nov, evening)
+
+| Feedback | What changed |
+|---|---|
+| Guysborough card showed Eliza Brody (Sunnyville) under a Guysborough caption | Real mismatch: the photo's record is linked to Sunnyville / Guysborough County, not Guysborough. The Guysborough card now uses the 1895 "men in front of a barn" photo, and Preston uses "Group with ox cart, Preston" (the old one was North Preston). The carousel now refuses any image whose record isn't linked to that card, and the card text describes the pictured record |
+| Graph: clicking the centre filled it with connection labels | Labels now only appear for an outer node. Clicking an outer node shows how it connects (and its source) under the graph, with an "Open" link; double-click opens its page. Clicking the centre clears it |
+| Addresses should lead to the map | Every institution address with a pin (record, page, "Where to find it", Institutions list) links to the full map, zoomed in with that institution's popup open. Place pages have "See … on the map" |
+| Suggestions under the search box | Typing 2+ letters shows matching pages and records right under the box, with the match in bold. Arrow keys + Enter work; "See all results" at the bottom. Matches by word start, so "pre" finds Preston, not "Supreme Court" |
+| Tagline capitalised | Kept David's "Our Stories, Connected" in the source too |
+
 ## 5. Round 1 changes (prototype → full build)
 
 | Prototype (v5.x) | Full build | Why |

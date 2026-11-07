@@ -51,6 +51,11 @@ function mountRecordsMap(el, recs, opt = {}) {
   const holders = new Map();
   for (const r of recs) { const k = r.holder; if (!holders.has(k)) holders.set(k, []); holders.get(k).push(r); }
   if (opt.institutionsOnly) for (const k of Object.keys(INSTITUTIONS)) holders.set(k, recsOf(k));
+  // opt.focus = 'i:<institution>' or 'p:<place>': make sure it is on the map, then open it
+  const [fk, fid] = String(opt.focus || '').split(':');
+  if (fk === 'i' && INSTITUTIONS[fid] && !holders.has(fid)) holders.set(fid, recsOf(fid));
+  if (fk === 'p' && PLACES[fid]?.lat != null && !byPlace.has(fid)) byPlace.set(fid, recsOf(fid));
+  const markers = {};
   // lines first (underneath)
   if (opt.lines) for (const [p, rs] of byPlace) {
     const P = PLACES[p];
@@ -63,6 +68,7 @@ function mountRecordsMap(el, recs, opt = {}) {
       <ul>${rs.slice(0, 6).map(r => `<li><a href="${href('r/' + r.id)}">${h(r.title.slice(0, 70))}</a> <span class="muted">${h(r.dateText || '')}</span></li>`).join('')}</ul>
       ${rs.length > 6 ? `<a href="${href('search', { place: p })}">All ${rs.length} →</a>` : ''}${P.note ? `<div class="meta">${h(P.note)}</div>` : ''}</div>`);
     m.bindTooltip(`${P.name} · ${rs.length}`);
+    markers['p:' + p] = m;
     bounds.push([P.lat, P.lng]);
   }
   // institutions (squares)
@@ -72,7 +78,7 @@ function mountRecordsMap(el, recs, opt = {}) {
     const I = INSTITUTIONS[k], ip = PLACES[I?.place]; if (!Number.isFinite(ip?.lat) || !Number.isFinite(ip?.lng)) continue;
     const off = placed.get(I.place) || 0; placed.set(I.place, off + 1);   // nudge institutions sharing a city
     const ll = [ip.lat + off * 0.012, ip.lng + off * 0.018];
-    L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
+    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">Pin = ${h(ip.name)} community point, not the building.</div></div>`)
       .bindTooltip(I.name);
     bounds.push(ll);
   }
@@ -82,7 +88,9 @@ function mountRecordsMap(el, recs, opt = {}) {
   else if (bounds.length > 1) map.fitBounds(bounds, { padding: [30, 30], maxZoom: 11 });
   else if (bounds.length === 1) map.setView(bounds[0], 10);
   else map.setView([44.9, -63.5], 7);
-  requestAnimationFrame(() => { if (active) map.invalidateSize(); });
+  const fm = markers[opt.focus];
+  if (fm) map.setView(fm.getLatLng(), 12);
+  requestAnimationFrame(() => { if (active) { map.invalidateSize(); if (fm) fm.openPopup(); } });
   const sizeTimer = setTimeout(() => { if (active) map.invalidateSize(); }, 180);
   CLEANUP.push(() => clearTimeout(sizeTimer));
 }

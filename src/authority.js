@@ -287,9 +287,9 @@ const FEATURED = [
   { id: 'africville', kicker: 'Community · Halifax', img: '' },
   { id: 'viola-desmond', kicker: 'Person · Civil rights', img: '' },
   { id: 'no2cb', kicker: 'Organization · First World War', img: 'https://www.warmuseum.ca/ke/_resources/5401246/19920166-2273-cmhsize-small.jpg', imgCredit: 'Cap badge, Canadian War Museum 19920166-2273', imgRecord: 'cwm-1075595' },
-  { id: 'preston', kicker: 'Community · Halifax County', img: 'https://archives.novascotia.ca/img/200402285.jpg', imgCredit: 'House at North Preston, 1934 — Nova Scotia Archives', imgRecord: 'nsa-africanns-174' },
+  { id: 'preston', kicker: 'Community · Halifax County', img: 'https://archives.novascotia.ca/images/africanns/200402256.jpg', imgCredit: 'Group with ox cart, Preston, ca. 1886 — Nova Scotia Archives', imgRecord: 'nsa-africanns-145' },
   { id: 'black-loyalists', kicker: 'Topic · 1783–1792', img: '' },
   { id: 'upper-hammonds-plains', kicker: 'Community · 1949 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402295.jpg', imgCredit: 'Choir practice, Emmanuel Baptist Church, 1949 — Nova Scotia Archives', imgRecord: 'nsa-africanns-184' },
   { id: 'black-refugees', kicker: 'Topic · 1813–1834', img: '' },
-  { id: 'guysborough', kicker: 'Place · ca. 1900 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402273.jpg', imgCredit: 'Eliza Brody, Sunnyville, ca. 1905 — Nova Scotia Archives', imgRecord: 'nsa-africanns-162' }
+  { id: 'guysborough', kicker: 'Place · ca. 1900 photographs', img: 'https://archives.novascotia.ca/images/africanns/200402268.jpg', imgCredit: 'Group of men in front of a barn, Guysborough, 1895 — Nova Scotia Archives', imgRecord: 'nsa-africanns-157' }
 ];

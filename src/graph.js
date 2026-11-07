@@ -100,7 +100,8 @@ function createGraph(canvas, opts) {
       ctx.lineWidth = on ? 2 : (e.kind === 'rel' ? 1.3 : 0.8);
       if (e.kind !== 'rel') ctx.setLineDash([3, 3]); else ctx.setLineDash([]);
       ctx.stroke();
-      if (on && e.label && view.k > .55) {
+      const focusNode = hover || pinned;
+      if (on && e.label && view.k > .55 && !(opts.centreId && focusNode && focusNode.id === opts.centreId)) {
         ctx.setLineDash([]);
         ctx.font = '11px "Google Sans Flex", system-ui, sans-serif'; ctx.fillStyle = '#7a5c10';
         ctx.fillText(e.label, (x1 + x2) / 2 + 4, (y1 + y2) / 2 - 4);
