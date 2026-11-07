@@ -83,3 +83,7 @@ Edit files in `src/`, then run `python build.py`.
 
 Sources harvested: archives.novascotia.ca/africanns · archives.novascotia.ca/desmond · recherche-collection-search.bac-lac.gc.ca · warmuseum.ca/collections · halifax.ca/about-halifax/municipal-archives/source-guides/africville-sources · geogratis.gc.ca (CGNDB).
 Leaflet 1.9.4 © Volodymyr Agafonkin, BSD-2 (see `vendor/LEAFLET-LICENSE`).
+
+## Leaflet map reliability update (7 Nov 2026)
+
+The bundled Leaflet JS/CSS remains offline-capable. The map now uses OpenStreetMap tiles with an automatic CARTO fallback if the primary service fails, and displays an informative message if both are blocked. Institution and place pins remain independent of tile loading. Maps remeasure their size after navigation; invalid coordinates are skipped. Tile backgrounds still require an internet connection.

@@ -265,3 +265,6 @@ footer .wrap { display: flex; gap: 24px; justify-content: space-between; flex-wr
 
 .more-recs { margin-top: 10px; } .more-recs > summary { cursor: pointer; color: var(--red); font-weight: 600; font-size: 14px; padding: 6px 0; }
 .more-recs[open] > summary { margin-bottom: 8px; }
+
+.map-tile-status { position: absolute; z-index: 1000; left: 12px; bottom: 28px; right: 12px; max-width: 540px; padding: 10px 12px; border: 1px solid #d3b57e; border-radius: 7px; background: rgba(255,250,235,.97); color: #543b17; font-size: 13px; box-shadow: 0 2px 8px rgba(0,0,0,.12); pointer-events: none; }
+.map-tile-status[hidden] { display: none; }
