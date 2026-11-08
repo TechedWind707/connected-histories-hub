@@ -44,3 +44,18 @@ Edit files in `src/`, then run `python build.py`.
 
 Sources harvested: archives.novascotia.ca/africanns · archives.novascotia.ca/desmond · recherche-collection-search.bac-lac.gc.ca · warmuseum.ca/collections · halifax.ca/about-halifax/municipal-archives/source-guides/africville-sources · geogratis.gc.ca (CGNDB).
 Leaflet 1.9.4 © Volodymyr Agafonkin, BSD-2 (see `vendor/LEAFLET-LICENSE`).
+
+## November 2026 prototype update — physical holdings, rights, and import approval
+
+- CSV imports are queued in **Admin → Record approvals**. New records do not appear in public search until approved. Older browser-stored CSV records without verified rights are moved into the pending queue when this version loads.
+- Public **Suggest a resource** supports digital, physical, and both. Physical-only submissions do not require URLs, but do require a holding location. Submissions remain pending until curator approval.
+- Records show rights holder, ownership/custody, copyright, reproduction permission, restrictions, evidence source, and whether those details were curator-verified. Existing harvested records without verified metadata remain discoverable but explicitly flagged for review; their rights are not fabricated.
+- Two synthetic physical-only records, `demo-physical-001` and `demo-physical-002`, test the public record-to-location map flow. Their fictional holding institution has approximate Halifax coordinates solely for testing; it is **not a real visitor address**.
+- The importer now accepts digital/physical/both records and has a **Download CSV template** button. A blank template and 15-record synthetic CSV are included with this project. Imported records require rights and location evidence to be reviewed before publication.
+- All demo rights statements are invented and are **not evidence of permission for real materials**.
+- This remains a browser-local prototype with no login or server-side audit. Rights verification is a curator workflow simulation, not legal clearance.
+
+### Record Linking and physical-location map update
+- Admin **Review queue** is now **Record Linking**. Approve, Reject, and Undo update each row and its waiting count without re-rendering the page, closing groups, or changing scroll position.
+- Physical-only record maps display only the exact institution holding-location marker (no separate city/place marker). Hovering shows the institution name, address, and access details. The **Find where this record is held** button opens the holding-only map view.
+- If no exact coordinates are verified, no approximate pin is presented as an exact location; the map displays a notice instead.

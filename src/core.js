@@ -22,17 +22,80 @@ const store = {
 
 /* ═══ 1. SAVED STATE ═══════════════════════════════════════════════ */
 let CUR = store.get('ch-curator-v1', {});          // { 'recordId|entityId': 'confirmed' | 'rejected' }
-let IMPORTED = store.get('ch-imported-v1', []);    // records added through the CSV importer
+let IMPORTED = store.get('ch-imported-v1', []);
+let PENDING_IMPORTS = store.get('ch-pending-imports-v1', []);
+let RIGHTS_EDITS = store.get('ch-rights-edits-v1', {});
+for (const r of IMPORTED.filter(x => !x.rightsVerified)) if (!PENDING_IMPORTS.some(x => x.id === r.id)) PENDING_IMPORTS.push({ ...r, reviewStatus: 'pending' });
+IMPORTED = IMPORTED.filter(x => x.rightsVerified);    // records added through the CSV importer
 let SUBS = store.get('ch-submissions-v1', []);     // public "Suggest a resource" submissions
 let INST_EDITS = store.get('ch-inst-edits-v1', {}); // admin edits to institution access details (+ new institutions)
-let ACTIVITY = store.get('ch-activity-v1', []);    // short admin activity log
+let ACTIVITY = store.get('ch-activity-v1', []);
+let KEYWORDS = store.get('ch-keywords-v1', []);
+let KEYWORD_SUGGESTIONS = store.get('ch-keyword-suggestions-v1', []);
+let KEYWORD_DISMISSED = store.get('ch-keyword-dismissed-v1', []);
+let KEYWORD_DISABLED = store.get('ch-keyword-disabled-v1', []);
+KEYWORDS.forEach(k => { if (k.strength === 'medium') k.strength = 'weak'; });
+KEYWORD_SUGGESTIONS.forEach(k => { if (k.strength === 'medium') k.strength = 'weak'; });
+const keywordKey = (term, subject) => norm(term).trim() + '|' + subject;
+const keywordDisabled = (term, subject) => KEYWORD_DISABLED.includes(keywordKey(term, subject));
+function dictionaryEntries() {
+  const base = Object.entries(ENTITIES).filter(([, e]) => e.type === 'topic').flatMap(([subject,e]) => (e.aliases || []).map(term => ({term, subject, strength: /^(family|children|his wife|her husband|generation|community)$/i.test(term) ? 'weak' : 'strong', enabled: !keywordDisabled(term,subject), builtIn: true})));
+  return [...base.filter(k => !KEYWORDS.some(x => x.override && keywordKey(x.term,x.subject) === keywordKey(k.term,k.subject))), ...KEYWORDS.map(k => ({...k, enabled: k.enabled !== false && !keywordDisabled(k.term,k.subject), builtIn: false}))];
+}
+function discoverKeywords(r) {
+  const title = String(r.title || '').replace(/^DEMO(?: ONLY)?\s*[—:-]\s*/i,'');
+  const candidates = [];
+  const seen = new Set();
+  const add = (term, category, strength) => {
+    term = term.trim().replace(/[.,;:]+$/,'');
+    if (term.length < 5 || term.length > 85 || seen.has(norm(term))) return;
+    if (dictionaryEntries().some(k => norm(k.term) === norm(term))) return;
+    if (KEYWORD_DISMISSED.includes(norm(term)) || KEYWORD_SUGGESTIONS.some(k => norm(k.term) === norm(term))) return;
+    seen.add(norm(term)); candidates.push({id:'kw-'+Date.now()+'-'+candidates.length,term,category,strength,sourceId:r.id,sourceTitle:r.title});
+  };
+  for (const match of title.matchAll(/\b(?:[A-Z][a-z]+|[A-Z]\.)+(?:\s+(?:of|de|the|[A-Z][a-z]+|[A-Z]\.)){1,3}/g)) {
+    const term = match[0].trim();
+    if (/^(Community|Family|Historical|Photograph|Letter|Record|Records|Handwritten|Collection|Album|Certificate|Report|The|Nova Scotia|Halifax Municipal|Library and)/i.test(term)) continue;
+    add(term,'Possible name / place','strong');
+  }
+  return candidates.slice(0, 8);
+}
+function discoverApprovedRecords() {
+  const approved = [...IMPORTED, ...SUBS.filter(s => s.status === 'approved').map(submissionToRecord)];
+  for (const r of approved) {
+    for (const suggestion of discoverKeywords(r)) KEYWORD_SUGGESTIONS.push(suggestion);
+  }
+}
+    // short admin activity log
 const ORIGINAL_INST = JSON.parse(JSON.stringify(INSTITUTIONS));
 function applyInstEdits() { for (const [k, v] of Object.entries(INST_EDITS)) INSTITUTIONS[k] = { ...(ORIGINAL_INST[k] || {}), ...v }; }
 function saveAll() {
-  store.set('ch-curator-v1', CUR); store.set('ch-imported-v1', IMPORTED); store.set('ch-submissions-v1', SUBS);
+  store.set('ch-curator-v1', CUR); store.set('ch-imported-v1', IMPORTED); store.set('ch-pending-imports-v1', PENDING_IMPORTS); store.set('ch-rights-edits-v1', RIGHTS_EDITS); store.set('ch-submissions-v1', SUBS);
+  store.set('ch-keywords-v1', KEYWORDS); store.set('ch-keyword-suggestions-v1', KEYWORD_SUGGESTIONS); store.set('ch-keyword-dismissed-v1', KEYWORD_DISMISSED); store.set('ch-keyword-disabled-v1', KEYWORD_DISABLED);
   store.set('ch-inst-edits-v1', INST_EDITS); store.set('ch-activity-v1', ACTIVITY.slice(0, 60));
 }
 function logActivity(text) { ACTIVITY.unshift({ at: new Date().toISOString(), text }); }
+
+const DEMO_PHYSICAL = [
+  {
+    id: 'demo-physical-001', source: 'demo', sourceRecordId: 'PHYS-001',
+    title: 'DEMO ONLY — Community Photograph Album (physical-only)', description: 'Fictional album for testing records without digital URLs. Not an actual archival holding.', dateText: 'ca. 1968',
+    resourceType: 'Photograph', resourceTypeRule: 'Demonstration record', holder: 'nsa', provider: 'nsa', url: '', format: 'physical',
+    physicalLocation: 'Nova Scotia Archives, 6016 University Avenue, Halifax, NS', reference: 'DEMO-PHYS-001', creator: 'Fictional creator', collection: 'Fictional demo holdings', placesText: 'Halifax',
+    access: { status: 'Physical only — demonstration', note: 'Synthetic test record; not an actual holding of Nova Scotia Archives.' },
+    rightsHolder: 'Fictional Demo Rights Holder', ownershipStatus: 'Fictional custodial holding', copyrightStatus: 'Copyrighted (fictional)', reproductionPermission: 'Permission required (demo)', rightsSource: 'Fictional demo declaration — not a real rights clearance', accessRestrictions: 'Demo only — no public access', rightsVerified: true,
+    image: '', native: { demo: true }, provenance: ['Synthetic test record created for physical-only discovery and rights-display testing.']
+  },
+  {
+    id: 'demo-physical-002', source: 'demo', sourceRecordId: 'PHYS-002',
+    title: 'DEMO ONLY — Handwritten Family Correspondence (physical-only)', description: 'Fictional private letters for testing physical access, rights and privacy notices. Not an actual archival holding.', dateText: '1934',
+    resourceType: 'Correspondence', resourceTypeRule: 'Demonstration record', holder: 'hma', provider: 'hma', url: '', format: 'physical',
+    physicalLocation: 'Halifax Municipal Archives, 81 Ilsley Ave, Unit 11, Dartmouth, NS', reference: 'DEMO-PHYS-002', creator: 'Fictional author', collection: 'Fictional demo holdings', placesText: 'Halifax',
+    access: { status: 'Physical only — demonstration', note: 'Synthetic test record; not an actual holding of Halifax Municipal Archives.' },
+    rightsHolder: 'Fictional Family Estate', ownershipStatus: 'Private family ownership (fictional)', copyrightStatus: 'Copyrighted (fictional)', reproductionPermission: 'Permission required (demo)', rightsSource: 'Fictional demo declaration — not a real rights clearance', accessRestrictions: 'Private correspondence — demo restricted', rightsVerified: true,
+    image: '', native: { demo: true }, provenance: ['Synthetic test record created for physical-only discovery and rights-display testing.']
+  }
+];
 
 /* ═══ 2. INDEX ═════════════════════════════════════════════════════ */
 let PIPE, RECORDS, REC, ENT_RECS, CO, SEARCH_DOCS;
@@ -48,9 +111,12 @@ const instName = k => INSTITUTIONS[k]?.name || k;
 
 function buildIndex() {
   applyInstEdits();
+  discoverApprovedRecords();
+  MATCHERS = null;
   // copies, because the pipeline adds links/provenance to the objects it is given
-  PIPE = runPipeline([...IMPORTED, ...SUBS.filter(x => x.status === 'approved').map(submissionToRecord)].map(r => JSON.parse(JSON.stringify(r))));
+  PIPE = runPipeline([...IMPORTED, ...DEMO_PHYSICAL, ...SUBS.filter(x => x.status === 'approved').map(submissionToRecord)].map(r => JSON.parse(JSON.stringify(r))));
   RECORDS = PIPE.records;
+  for (const r of RECORDS) if (RIGHTS_EDITS[r.id]) Object.assign(r, RIGHTS_EDITS[r.id]);
   REC = new Map(RECORDS.map(r => [r.id, r]));
   ENT_RECS = new Map();
   const push = (id, rid) => { if (!ENT_RECS.has(id)) ENT_RECS.set(id, new Set()); ENT_RECS.get(id).add(rid); };

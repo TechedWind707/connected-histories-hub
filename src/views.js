@@ -30,7 +30,7 @@ function recordRow(r) {
       <h3><a href="${href('r/' + r.id)}">${h(r.title)}</a></h3>
       <p class="meta">${h(r.resourceType)} · ${dateLabel(r)} · Held by ${h(instName(r.holder))}</p>
       ${r.description ? `<p class="rrow-desc">${h(r.description)}</p>` : ''}
-      ${ext(r.url, `View original at ${h(instName(r.provider))}`)}
+      ${r.url ? ext(r.url, `View original at ${h(instName(r.provider))}`) : `<a class="btn btn-secondary" href="${href('r/' + r.id)}">Find physical holding location</a>`}
     </div></article>`;
 }
 
@@ -264,7 +264,7 @@ function viewRecord(id) {
   const I = INSTITUTIONS[r.holder];
   const subjects = publicLinks(r);
   const similar = RECORDS.filter(x => x !== r).map(x => [x, publicLinks(x).filter(l => l.kind !== 'topic' && subjects.some(m => m.id === l.id)).length]).filter(x => x[1]).sort((a, b) => b[1] - a[1]).slice(0, 4);
-  onMount(() => mountRecordsMap($('#rec-map'), [r], { lines: true }));
+  onMount(() => mountRecordsMap($('#rec-map'), [r], { lines: !!r.url, holdingOnly: !r.url, focus: !r.url ? 'i:' + r.holder : '' }));
   return `<div class="wrap page">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="${href('e/' + r.holder)}">${h(instName(r.holder))}</a></nav>
     <div class="two">
@@ -273,7 +273,7 @@ function viewRecord(id) {
         <p class="meta lead-meta">${h(r.resourceType)} · ${dateLabel(r)}${r.dateApprox ? ' (approximate)' : ''}</p>
         ${r.image ? `<figure class="rec-img"><img src="${h(r.image)}" alt="Preview of ${h(r.title)}" onerror="this.parentNode.remove()"><figcaption>Preview shown from ${h(instName(r.provider))}. ${h(r.imageCredit)}</figcaption></figure>` : ''}
         ${r.description ? `<p class="rec-desc">${h(r.description)}</p>` : ''}
-        <p><a class="btn btn-primary" href="${h(r.url)}" target="_blank" rel="noopener">View original record<span aria-hidden="true"> ↗</span></a></p>
+        <p>${r.url ? `<a class="btn btn-primary" href="${h(r.url)}" target="_blank" rel="noopener">View original record<span aria-hidden="true"> ↗</span></a>` : `<a class="btn btn-primary" href="${hasPin(r.holder) ? href('map', { focus: 'i:' + r.holder, holding: 1 }) : href('e/' + r.holder)}">Find where this record is held</a>`}</p>
         <dl class="facts">
           <dt>Held by</dt><dd><a href="${href('e/' + r.holder)}">${h(instName(r.holder))}</a></dd>
           ${r.provider !== r.holder ? `<dt>Found through</dt><dd>${h(instName(r.provider))}</dd>` : ''}
@@ -281,7 +281,16 @@ function viewRecord(id) {
           <dt>Reference</dt><dd>${h(r.reference || 'Not recorded')}</dd>
           ${r.creator ? `<dt>Creator</dt><dd>${h(r.creator)}</dd>` : ''}
           <dt>Collection</dt><dd>${h(r.collection)}</dd>
-          <dt>Access</dt><dd>${h(r.access.status)}. ${h(r.access.note)}</dd>
+          <dt>Format</dt><dd>${h(r.format || 'Not recorded')}</dd>
+          ${r.physicalLocation ? `<dt>Physical holding location</dt><dd>${h(r.physicalLocation)}</dd>` : ''}
+          <dt>Access</dt><dd>${h(r.access?.status || 'Not recorded')}. ${h(r.access?.note || '')}</dd>
+          <dt>Rights holder</dt><dd>${h(r.rightsHolder)}</dd>
+          <dt>Ownership / custody</dt><dd>${h(r.ownershipStatus)}</dd>
+          <dt>Copyright status</dt><dd>${h(r.copyrightStatus)}</dd>
+          <dt>Reproduction permission</dt><dd>${h(r.reproductionPermission)}</dd>
+          <dt>Access restrictions</dt><dd>${h(r.accessRestrictions)}</dd>
+          <dt>Rights source</dt><dd>${r.rightsSource ? ( /^https?:\/\//.test(r.rightsSource) ? ext(r.rightsSource, 'Rights statement') : h(r.rightsSource)) : 'Not recorded'}</dd>
+          <dt>Rights review</dt><dd>${r.rightsVerified ? 'Verified by curator' : 'Needs curator verification; no reuse permission implied'}</dd>
         </dl>
         ${subjects.length ? `<h2 class="h3">People, places and topics</h2><div class="tags">${subjects.map(l => tag(l.id)).join('')}</div>` : ''}
         <details class="prov"><summary>Provenance</summary><ol>${r.provenance.map(s => `<li>${h(s)}</li>`).join('')}</ol>
@@ -300,7 +309,7 @@ function viewMap(_, p) {
   const recs = runSearch({ ...p, focus: '' });
   const topics = Object.keys(ENTITIES).filter(i => ENTITIES[i].type === 'topic' && ENT_RECS.get(i)?.size);
   onMount(() => {
-    mountRecordsMap($('#big-map'), recs, { lines: !!p.lines, focus: p.focus });
+    mountRecordsMap($('#big-map'), p.holding && String(p.focus || '').startsWith('i:') ? recs.filter(r => r.holder === String(p.focus).slice(2)) : recs, { lines: !!p.lines && !p.holding, focus: p.focus, holdingOnly: !!p.holding });
     $('#map-topic').onchange = e => go('map', { ...p, topic: e.target.value });
     $('#map-lines').onchange = e => go('map', { ...p, lines: e.target.checked ? 1 : '' });
   });
@@ -328,41 +337,62 @@ function viewInstitutions() {
 function viewSuggest(_, p) {
   onMount(() => {
     const f = $('#sub-form'); if (!f) return;
+    const format = f.elements.format;
+    const update = () => {
+      const digital = format.value !== 'physical';
+      const physical = format.value !== 'digital';
+      $('#sub-digital').hidden = !digital;
+      $('#sub-physical').hidden = !physical;
+      f.elements.url.required = digital;
+      f.elements.physicalLocation.required = physical;
+    };
+    format.onchange = update; update();
     f.onsubmit = e => {
       e.preventDefault();
       const d = Object.fromEntries(new FormData(f));
-      if (!/^https?:\/\//.test(d.url)) { $('#sub-err').hidden = false; f.url.focus(); return; }
+      const goodUrl = !d.url || /^https?:\/\/[^\s]+$/i.test(d.url);
+      if (!goodUrl || (d.format !== 'physical' && !d.url) || (d.format !== 'digital' && !d.physicalLocation.trim())) {
+        $('#sub-err').hidden = false; return;
+      }
       SUBS.unshift({ id: Date.now().toString(36), at: new Date().toISOString(), status: 'pending', ...d });
-      logActivity(`New suggestion: “${d.title}”`); saveAll();
-      go('suggest', { sent: 1 });
+      logActivity(`New suggestion: “${d.title}”`); saveAll(); go('suggest', { sent: 1 });
     };
   });
-  if (p.sent) return `<div class="wrap page narrow"><h1>Thank you</h1><p class="lead">Your suggestion is waiting for a curator. Once it's checked against the original record, it will appear in search.</p><p><a class="btn btn-secondary" href="${href('suggest')}">Suggest another</a> <a class="btn btn-quiet" href="#/">Back to search</a></p></div>`;
-  return `<div class="wrap page narrow">
-    <h1>Suggest a resource</h1>
-    <p class="lead">Know of a Black history record held somewhere we don't list yet? Tell us where it is. A curator checks every suggestion before it appears.</p>
+  if (p.sent) return `<div class="wrap page narrow"><h1>Thank you</h1><p class="lead">Your suggestion is waiting for curator review, including its rights and access details.</p><p><a class="btn btn-secondary" href="${href('suggest')}">Suggest another</a></p></div>`;
+  return `<div class="wrap page narrow"><h1>Suggest a resource</h1>
+    <p class="lead">Suggest a digital record, a physical record, or one available in both formats. You do not need to own the material to suggest it.</p>
     <form id="sub-form" class="form">
+      <label>Resource format<select name="format"><option value="digital">Digital</option><option value="physical">Physical only</option><option value="both">Both digital and physical</option></select></label>
       <label>Title of the record<input name="title" required></label>
-      <label>Link to the original record<input name="url" type="url" required placeholder="https://"></label>
-      <p id="sub-err" class="notice notice-rejected" hidden>Please add a link that starts with https:// so people can reach the original.</p>
-      <label>Institution that holds it<input name="holder" required></label>
-      <div class="form-2"><label>Date, as written<input name="dateText" placeholder="e.g. ca. 1920"></label><label>Place<input name="place" placeholder="e.g. Preston"></label></div>
-      <label>Type of record<input name="type" placeholder="e.g. Photograph, Letter"></label>
-      <label>Short description<textarea name="description" rows="4"></textarea></label>
+      <div id="sub-digital"><label>Link to original catalogue or digital record<input name="url" type="url" placeholder="https://"></label></div>
+      <div id="sub-physical"><label>Where is the physical resource held?<input name="physicalLocation" placeholder="Archive address or known holding location"></label><label>How can someone request access?<textarea name="accessNote" rows="2"></textarea></label></div>
+      <p id="sub-err" class="notice notice-rejected" hidden>Provide a valid URL for digital resources and a location for physical resources.</p>
+      <label>Institution, individual or organization holding it<input name="holder" required></label>
+      <div class="form-2"><label>Date, as written<input name="dateText"></label><label>Place associated with record<input name="place"></label></div>
+      <label>Type of record<input name="type" placeholder="Photograph, letter, etc."></label>
+      <label>Description<textarea name="description" rows="3" required></textarea></label>
+      <label>Your relationship to the resource<select name="submitterRelationship"><option value="Suggesting only">I am suggesting it, not claiming ownership</option><option value="Owner">I own it</option><option value="Authorized representative">I represent the owner</option><option value="Custodian">I hold/custody it</option></select></label>
+      <label>Known rights or copyright holder<input name="rightsHolder" placeholder="Name or Unknown"></label>
+      <label>Copyright status<select name="copyrightStatus"><option>Unknown</option><option>Copyrighted</option><option>Public domain</option><option>Other / needs review</option></select></label>
+      <label>Permission to reproduce<select name="reproductionPermission"><option>Not verified</option><option>Permission required</option><option>Permitted with conditions</option><option>Restricted</option></select></label>
+      <label>Rights evidence or permission source<textarea name="rightsSource" rows="2" placeholder="Catalogue rights statement, permission document, or unknown"></textarea></label>
+      <label>Access/privacy restrictions<textarea name="accessRestrictions" rows="2" placeholder="If known; otherwise leave blank for curator review"></textarea></label>
       <label>Your name (optional)<input name="name"></label>
-      <button class="btn btn-primary" type="submit">Send suggestion</button>
+      <button class="btn btn-primary" type="submit">Send suggestion for review</button>
     </form></div>`;
 }
 function submissionToRecord(s) {
   let holder = Object.keys(INSTITUTIONS).find(k => norm(INSTITUTIONS[k].name) === norm(s.holder));
-  if (!holder) { holder = 'sub-' + norm(s.holder).replace(/\W+/g, '-'); INSTITUTIONS[holder] = INSTITUTIONS[holder] || { name: s.holder, kind: 'Named in a suggestion', address: '', place: '', access: 'Visitor details not yet confirmed by a curator.' }; }
+  if (!holder) { holder = 'sub-' + norm(s.holder).replace(/\W+/g, '-'); INSTITUTIONS[holder] = INSTITUTIONS[holder] || { name: s.holder, kind: 'Named in a suggestion', address: s.physicalLocation || '', place: '', access: s.accessNote || 'Visitor details not yet confirmed by a curator.' }; }
   return {
     id: 'sub-' + s.id, source: 'sub', sourceRecordId: s.id, title: s.title, description: s.description || '', dateText: s.dateText || '',
-    resourceType: s.type || 'Record', resourceTypeRule: 'Given by the person who suggested it', holder, provider: 'community', url: s.url,
+    resourceType: s.type || 'Record', resourceTypeRule: 'Given by the person who suggested it', holder, provider: 'community', url: s.url || '', format: s.format || 'digital',
     reference: '', creator: '', collection: 'Community suggestion', themeKey: 'sub:*', placesText: s.place || '',
-    access: { status: 'Catalogue online', note: 'Check the original record for access.' },
-    image: '', native: { ...s },
-    provenance: [`Suggested ${s.at.slice(0, 10)}${s.name ? ' by ' + s.name : ''}.`, `Approved by a curator ${String(s.decidedAt || '').slice(0, 10)}.`]
+    access: { status: s.format === 'digital' ? 'Catalogue online' : 'Physical holding', note: s.accessNote || s.physicalLocation || 'Contact the holder for access.' },
+    rightsHolder: s.rightsHolder || 'Unknown — verification needed', copyrightStatus: s.copyrightStatus || 'Unknown',
+    reproductionPermission: s.reproductionPermission || 'Not verified', rightsSource: s.rightsSource || '',
+    ownershipStatus: s.submitterRelationship || 'Unknown', accessRestrictions: s.accessRestrictions || 'Not assessed', rightsVerified: !!s.rightsVerified,
+    image: '', native: { ...s }, provenance: [`Suggested ${s.at.slice(0, 10)}.`, `Approved by a curator ${String(s.decidedAt || '').slice(0, 10)}.`]
   };
 }
 if (!INSTITUTIONS.community) INSTITUTIONS.community = { name: 'Community suggestions', kind: 'Approved public suggestions', address: '', place: '', access: 'Suggested by the public and checked by a curator.' };

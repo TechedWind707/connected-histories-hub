@@ -34,6 +34,8 @@ const COMMON_FIELDS = [
   ['creator', 'Photographer / author / maker as given'],
   ['collection', 'Exhibit theme, fonds or series as given'],
   ['access', 'Online / on site / by appointment + how to request'],
+  ['rightsHolder / copyrightStatus / reproductionPermission / rightsSource', 'Rights and reproduction metadata; unknown is not permission'],
+  ['ownershipStatus / accessRestrictions / rightsVerified', 'Ownership, privacy and curator verification'],
   ['places', 'Gazetteer places (with CGNDB id when mapped)'],
   ['entities', 'People, organizations, events, topics — each with how & confidence'],
   ['provenance', 'Every transformation step the hub applied'],
@@ -173,8 +175,12 @@ let MATCHERS = null;
 function buildMatchers() {
   const list = [];
   for (const [id, p] of Object.entries(PLACES)) for (const a of p.aliases || []) list.push({ id, kind: 'place', alias: a, re: aliasRegex(a, false) });
-  for (const [id, e] of Object.entries(ENTITIES)) for (const a of e.aliases || [])
-    list.push({ id, kind: e.type, alias: a, re: aliasRegex(a, e.type === 'topic') });
+  for (const [id, e] of Object.entries(ENTITIES)) for (const a of e.aliases || []) {
+    if (e.type === 'topic') continue;
+    list.push({ id, kind: e.type, alias: a, re: aliasRegex(a, false) });
+  }
+  for (const k of dictionaryEntries()) if (k.enabled && ENTITIES[k.subject]?.type === 'topic')
+    list.push({ id:k.subject, kind:'topic', alias:k.term, strength:k.strength, re:aliasRegex(k.term,false) });
   list.sort((a, b) => b.alias.length - a.alias.length);
   MATCHERS = list;
 }
@@ -209,7 +215,7 @@ function linkEntities(r) {
           add(m.id, m.kind, `name "${hit[0]}" in ${hay[1]}`, 'confirmed', hit[0]);
         } else {
           if (hay[1] === 'title/description' && overlaps(s, e)) continue;
-          add(m.id, 'topic', `keyword "${hit[0]}" in ${hay[1]}`, 'suggested', hit[0]);
+          add(m.id, 'topic', `keyword "${hit[0]}" in ${hay[1]} · ${m.strength || 'strong'} match`, 'suggested', hit[0]);
         }
       }
     }
@@ -240,6 +246,14 @@ function runPipeline(extraRecords = []) {
   }
   for (const r of extraRecords) out.push(r);
   for (const r of out) {
+    if (!r.format) r.format = r.url ? 'digital' : 'physical';
+    if (!r.rightsHolder) r.rightsHolder = 'Unknown — verification needed';
+    if (!r.copyrightStatus) r.copyrightStatus = 'Unknown';
+    if (!r.reproductionPermission) r.reproductionPermission = 'Not verified';
+    if (!r.ownershipStatus) r.ownershipStatus = 'Unknown';
+    if (!r.accessRestrictions) r.accessRestrictions = 'Not assessed';
+    if (!r.rightsSource) r.rightsSource = '';
+    if (!r.rightsVerified) r.rightsVerified = false;
     const d = parseDate(r.dateText);
     Object.assign(r, { dateStart: d.start, dateEnd: d.end, dateApprox: d.approx });
     r.provenance.push(`Date: ${d.note}${d.start ? ` → ${d.start}${d.end !== d.start ? '–' + d.end : ''}` : ''}.`);

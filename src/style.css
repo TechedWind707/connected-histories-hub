@@ -176,7 +176,7 @@ a.tag:hover { border-color: var(--border-strong); text-decoration: none; }
 .rrow h3 a { color: var(--ink); text-decoration: none; }
 .rrow h3 a:hover { color: var(--red); text-decoration: underline; }
 .rrow .meta { margin-bottom: var(--space-2); }
-.rrow-desc { color: var(--ink); font-size: 15px; max-width: 58ch; display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: var(--space-2); }
+.rrow-desc { color: var(--ink); font-size: 15px; max-width: 58ch; display: -webkit-box; -webkit-line-clamp: 2; line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; margin-bottom: var(--space-2); }
 .more { margin-top: var(--space-6); align-self: flex-start; }
 .empty { padding: var(--space-8) 0; }
 .side { position: sticky; top: var(--space-6); display: flex; flex-direction: column; gap: var(--space-6); }
@@ -316,3 +316,21 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
 @media (max-width: 640px) { .hdr-field { flex: 1; } #hdr-suggest { left: 0; width: auto; } }
 .inst-new { margin-top: var(--space-8); }
 .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
+
+/* Keyword management and stable review actions */
+.rev-row { display:grid; grid-template-columns:minmax(0,1fr) auto; align-items:start; flex-wrap:nowrap; }
+.rev-main,.rev-title { min-width:0; overflow-wrap:anywhere; }
+.rev-act { justify-content:flex-end; flex-wrap:nowrap; white-space:nowrap; }
+.dict-filters { display:grid; grid-template-columns:minmax(180px,2fr) minmax(150px,1fr) minmax(120px,1fr); gap:12px; margin:16px 0; }
+[data-dict-row][hidden] { display:none; }
+@media(max-width:700px) { .rev-row {grid-template-columns:minmax(0,1fr)} .rev-act {justify-content:flex-start;flex-wrap:wrap} .dict-filters {grid-template-columns:1fr} }
+
+.dict-list-toolbar {display:flex;justify-content:space-between;align-items:center;gap:12px;flex-wrap:wrap;margin:10px 0;}
+.dict-list-toolbar .meta {margin:0;}
+.dict-page-size-label {display:flex;align-items:center;gap:8px;font-size:.9rem;}
+.dict-page-size-label select {width:auto;min-width:70px;}
+.dict-pagination {display:flex;justify-content:center;align-items:center;gap:14px;flex-wrap:wrap;margin:18px 0 6px;}
+.dict-pagination button:disabled {opacity:.45;cursor:not-allowed;}
+
+.dict-strength-control {display:inline-flex;align-items:center;gap:6px;font-size:.85rem;white-space:nowrap;}
+.dict-strength-control select {width:auto;min-width:90px;max-width:110px;padding:6px 8px;}

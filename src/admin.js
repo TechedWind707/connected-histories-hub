@@ -1,19 +1,19 @@
 /* =====================================================================
    admin.js — curator / administrator screens  (#/admin/<tab>)
    ---------------------------------------------------------------------
-   Dashboard · Review queue · Suggestions · Institutions · Import CSV ·
+   Dashboard · Record Linking · Suggestions · Institutions · Import CSV ·
    Sources · Data and backup
    No sign-in in this prototype. Everything is saved in this browser
    (see saveAll in core.js). A real deployment puts this behind a login
    and stores decisions with the curator's name.
    ===================================================================== */
 
-const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Review queue'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
+const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Record Linking'], ['dictionary', 'Keyword Dictionary'], ['record-review', 'Record approvals'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
 const statusWord = s => `<span class="status status-${s}">${{ pending: 'Pending', approved: 'Approved', confirmed: 'Approved', rejected: 'Rejected', suggested: 'Pending' }[s] || s}</span>`;
 
 function viewAdmin(tab = 'dashboard', p = {}) {
   if (!ADMIN_TABS.some(t => t[0] === tab)) tab = 'dashboard';
-  const body = { dashboard: adminDashboard, review: adminReview, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
+  const body = { dashboard: adminDashboard, review: adminReview, dictionary: adminDictionary, 'record-review': adminRecordReview, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
   return `<div class="wrap page admin">
     <p class="notice">Admin demo. There is no sign-in in this prototype, and changes are saved in this browser only.</p>
     <h1>Admin</h1>
@@ -27,7 +27,9 @@ function adminDashboard() {
   const stats = [
     ['Records indexed', RECORDS.length, 'search'],
     ['Suggestions waiting', SUBS.filter(s => s.status === 'pending').length, 'admin/suggestions'],
-    ['Links to review', pendingLinks().length, 'admin/review'],
+    ['CSV records awaiting review', PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending').length, 'admin/record-review'],
+    ['Records needing rights verification', RECORDS.filter(r => !r.rightsVerified).length, 'admin/record-review'],
+    ['Record links to review', pendingLinks().length, 'admin/review'],
     ['Holding institutions', new Set(RECORDS.map(r => r.holder)).size, 'admin/institutions'],
     ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, null],
     ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, null]
@@ -42,35 +44,230 @@ function adminDashboard() {
     </div>`;
 }
 
+function linkActionMarkup(rid,eid,term) {
+  const d = CUR[rid + '|' + eid];
+  return d ? `${statusWord(d)} <button class="btn btn-quiet" data-decide="" data-rid="${h(rid)}" data-eid="${h(eid)}">Undo</button>`
+    : `${statusWord('pending')} <button class="btn btn-secondary" data-decide="confirmed" data-rid="${h(rid)}" data-eid="${h(eid)}">Approve</button><button class="btn btn-quiet" data-decide="rejected" data-rid="${h(rid)}" data-eid="${h(eid)}">Reject</button>${term ? `<button class="btn btn-quiet" data-disable-term="${h(term)}" data-eid="${h(eid)}" title="Stop suggesting this keyword in future">Disable keyword</button>` : ''}`;
+}
 function adminReview() {
-  const groups = new Map();
-  for (const r of RECORDS) for (const l of r.links) if (l.status === 'suggested') { if (!groups.has(l.id)) groups.set(l.id, []); groups.get(l.id).push(r); }
-  onMount(() => $$('[data-decide]').forEach(b => b.onclick = () => decide(b.dataset.rid, b.dataset.eid, b.dataset.decide || null)));
-  return `<p class="lead">These links were found by keyword only. They stay hidden from the public site until you approve them.</p>
-    ${[...groups].map(([eid, rs]) => { const open = rs.filter(r => !CUR[r.id + '|' + eid]).length; return `<details class="rev" ${groups.size < 4 ? 'open' : ''}><summary><b>${h(nameOf(eid))}</b> <span class="meta">${open} waiting · ${rs.length} total</span></summary>
-      ${rs.map(r => { const d = CUR[r.id + '|' + eid]; const l = r.links.find(x => x.id === eid); return `<div class="rev-row"><div><a href="${href('r/' + r.id)}">${h(r.title)}</a><p class="meta">${h(l.how)}</p></div>
-        <div class="rev-act">${d ? `${statusWord(d)} <button class="btn btn-quiet" data-decide="" data-rid="${r.id}" data-eid="${eid}">Undo</button>` : `${statusWord('pending')} <button class="btn btn-secondary" data-decide="confirmed" data-rid="${r.id}" data-eid="${eid}">Approve</button><button class="btn btn-quiet" data-decide="rejected" data-rid="${r.id}" data-eid="${eid}">Reject</button>`}</div></div>`; }).join('')}
-    </details>`; }).join('')}`;
+  const records = RECORDS.map(r => ({r, links:r.links.filter(l => l.status === 'suggested')})).filter(x => x.links.length);
+  onMount(() => {
+    const host = $('#record-linking-list'); if (!host) return;
+    const groups = [...host.querySelectorAll('details.rev')];
+    const pageSize = $('#link-page-size'), prev = $('#link-prev'), next = $('#link-next');
+    const pageLabel = $('#link-page-label'), count = $('#link-count');
+    let page = 1;
+    const updatePage = () => {
+      const size = Number(pageSize.value);
+      const pages = Math.max(1, Math.ceil(groups.length / size));
+      page = Math.min(Math.max(1, page), pages);
+      groups.forEach((group, i) => { group.hidden = i < (page - 1) * size || i >= page * size; });
+      count.textContent = `${groups.length} records · Showing ${groups.length ? (page - 1) * size + 1 : 0}–${Math.min(page * size, groups.length)}`;
+      pageLabel.textContent = `Page ${page} of ${pages}`;
+      prev.disabled = page === 1;
+      next.disabled = page === pages;
+    };
+    pageSize.addEventListener('change', () => { page = 1; updatePage(); });
+    prev.addEventListener('click', () => { if (page > 1) { page--; updatePage(); } });
+    next.addEventListener('click', () => { page++; updatePage(); });
+    updatePage();
+    host.onclick = event => {
+      const b = event.target.closest('button[data-decide],button[data-disable-term]'); if (!b) return;
+      const {rid,eid} = b.dataset;
+      if (b.hasAttribute('data-disable-term')) {
+        const term = b.dataset.disableTerm;
+        if (!confirm(`Disable "${term}" for ${nameOf(eid)}? Existing approved relationships will be retained.`)) return;
+        const key = keywordKey(term,eid);
+        if (!KEYWORD_DISABLED.includes(key)) KEYWORD_DISABLED.push(key);
+        KEYWORDS.forEach(k => {if (keywordKey(k.term,k.subject) === key) k.enabled = false;});
+        logActivity(`Disabled dictionary keyword "${term}"`);
+        saveAll(); buildIndex(); render(); return;
+      }
+      const val = b.dataset.decide || null;
+      if (val) CUR[rid+'|'+eid] = val; else delete CUR[rid+'|'+eid];
+      logActivity(`${val || 'cleared'}: ${nameOf(eid)} on “${REC.get(rid)?.title || rid}”`);
+      saveAll(); buildIndex();
+      const row = b.closest('.rev-row');
+      const link = records.find(x => x.r.id === rid)?.links.find(l => l.id === eid);
+      row.querySelector('.rev-act').innerHTML = linkActionMarkup(rid,eid,link?.evidence);
+      const group = b.closest('details.rev');
+      const x = records.find(x => x.r.id === rid);
+      group.querySelector('[data-link-count]').textContent = `${x.links.filter(l => !CUR[rid+'|'+l.id]).length} waiting · ${x.links.length} total`;
+    };
+  });
+  return `<h2>Record Linking</h2><p class="lead">Review suggested subject connections one historical record at a time. Approving a link makes that relationship visible publicly. Rejecting does not delete the record. Disable a broad keyword to stop new suggestions.</p>
+    <div class="dict-list-toolbar"><p class="meta" id="link-count" aria-live="polite"></p><label class="dict-page-size-label">Records per page <select id="link-page-size" aria-label="Records per page"><option value="10">10</option><option value="20">20</option></select></label></div>
+    <div id="record-linking-list">${records.length ? records.map(({r,links}) => `<details class="rev"><summary><b class="rev-title">${h(r.title)}</b> <span class="meta" data-link-count>${links.filter(l => !CUR[r.id+'|'+l.id]).length} waiting · ${links.length} total</span></summary>
+      ${links.map(l => `<div class="rev-row"><div class="rev-main"><strong>${h(nameOf(l.id))}</strong><p class="meta">${h(l.how)}</p></div><div class="rev-act">${linkActionMarkup(r.id,l.id,l.evidence)}</div></div>`).join('')}
+    </details>`).join('') : '<p class="notice">No suggested record links to review.</p>'}</div><nav class="dict-pagination" aria-label="Record linking pages"><button class="btn btn-secondary" id="link-prev" type="button">Previous</button><span id="link-page-label" aria-live="polite">Page 1</span><button class="btn btn-secondary" id="link-next" type="button">Next</button></nav>`;
+}
+function adminDictionary() {
+  const subjects = Object.entries(ENTITIES).filter(([,e])=>e.type==='topic');
+  const entries = dictionaryEntries();
+  const options = subjects.map(([id,e])=>`<option value="${h(id)}">${h(e.name)}</option>`).join('');
+  onMount(() => {
+    const list = $('#dict-list'), search = $('#dict-search'), category = $('#dict-category'), strength = $('#dict-strength');
+    const pageSize = $('#dict-page-size'), prev = $('#dict-prev'), next = $('#dict-next'), pageLabel = $('#dict-page-label');
+    let page = 1;
+    const strengthOrder = {strong:0, weak:1};
+    const reorderOnNavigation = () => {
+      const rows = [...list.querySelectorAll('[data-dict-row]')];
+      rows.sort((a,b) => (strengthOrder[a.dataset.strength] ?? 3) - (strengthOrder[b.dataset.strength] ?? 3) || a.dataset.term.localeCompare(b.dataset.term));
+      rows.forEach(row => list.appendChild(row));
+    };
+    const refresh = () => {
+      const query = norm(search.value), cat = category.value, level = strength.value;
+      const rows = [...list.querySelectorAll('[data-dict-row]')];
+      const matching = rows.filter(row => (!query || norm(row.dataset.term+' '+row.dataset.subjectName).includes(query)) && (!cat || row.dataset.subject === cat) && (!level || row.dataset.strength === level));
+      const size = Number(pageSize.value), pages = Math.max(1, Math.ceil(matching.length / size));
+      page = Math.min(Math.max(1, page), pages);
+      const visible = new Set(matching.slice((page-1)*size, page*size));
+      rows.forEach(row => { row.hidden = !visible.has(row); });
+      $('#dict-count').textContent = `${matching.length} of ${rows.length} terms · Showing ${matching.length ? (page-1)*size+1 : 0}–${Math.min(page*size, matching.length)}`;
+      pageLabel.textContent = `Page ${page} of ${pages}`;
+      prev.disabled = page === 1;
+      next.disabled = page === pages;
+    };
+    [search,category,strength].forEach(el => el.addEventListener(el.tagName==='INPUT'?'input':'change',()=>{page=1;refresh();}));
+    pageSize.addEventListener('change',()=>{page=1;refresh();});
+    prev.addEventListener('click',()=>{if(page>1){page--;reorderOnNavigation();refresh();}});
+    next.addEventListener('click',()=>{page++;reorderOnNavigation();refresh();});
+    refresh();
+    $('#dict-add').onsubmit = e => {
+      e.preventDefault(); const f=e.currentTarget, term=f.elements.namedItem('term').value.trim(), subject=f.elements.namedItem('subject').value;
+      if (!term || entries.some(k=>keywordKey(k.term,k.subject)===keywordKey(term,subject))) {alert('This keyword already exists for that subject, or is empty.');return;}
+      KEYWORDS.push({term,subject,strength:f.elements.namedItem('strength').value,enabled:true});
+      KEYWORD_DISABLED=KEYWORD_DISABLED.filter(k=>k!==keywordKey(term,subject));
+      logActivity(`Added keyword "${term}"`); saveAll(); buildIndex(); render();
+    };
+    list.onchange = e => {
+      const select = e.target.closest('select[data-dict-strength-select]');
+      if (!select) return;
+      const {term,subject} = select.dataset;
+      const key = keywordKey(term,subject);
+      const custom = KEYWORDS.find(k=>keywordKey(k.term,k.subject)===key);
+      const next = select.value;
+      if (!['strong','weak'].includes(next)) return;
+      if (custom) custom.strength = next;
+      else KEYWORDS.push({term,subject,strength:next,enabled:true,override:true});
+      select.closest('[data-dict-row]').dataset.strength = next;
+      logActivity(`Changed keyword strength to ${next}: "${term}"`);
+      saveAll(); buildIndex();
+      // Preserve the current row order and pagination until the user navigates.
+    };
+    list.onclick = e => {
+      const b=e.target.closest('button[data-dict-action]');if(!b)return;
+      const {dictAction:action,term,subject} = b.dataset;
+      const key=keywordKey(term,subject), custom=KEYWORDS.find(k=>keywordKey(k.term,k.subject)===key);
+      if (action==='toggle') {
+        if (keywordDisabled(term,subject) || custom?.enabled===false) {
+          KEYWORD_DISABLED=KEYWORD_DISABLED.filter(x=>x!==key); if(custom)custom.enabled=true;
+        } else { if(!KEYWORD_DISABLED.includes(key))KEYWORD_DISABLED.push(key); if(custom)custom.enabled=false; }
+      } else if(action==='edit' && custom) { const next=prompt('Edit keyword or phrase:',custom.term); if(next===null)return; const cleaned=next.trim(); if(!cleaned || KEYWORDS.some(k=>k!==custom && keywordKey(k.term,k.subject)===keywordKey(cleaned,subject))){alert('Please enter a unique, non-empty keyword.');return;} custom.term=cleaned; } else if(action==='delete' && custom) {if(!confirm(`Delete keyword "${term}"?`))return;KEYWORDS=KEYWORDS.filter(k=>k!==custom);}
+      logActivity(`${action}: keyword "${term}"`);saveAll();buildIndex();render();
+    };
+    $('#dict-suggestions').onclick = e => {
+      const b=e.target.closest('button[data-suggest]');if(!b)return;
+      const s=KEYWORD_SUGGESTIONS.find(x=>x.id===b.dataset.suggest);if(!s)return;
+      if(b.dataset.action==='dismiss') KEYWORD_DISMISSED.push(norm(s.term));
+      else {
+        const form=b.closest('[data-suggestion-row]'), subject=form.querySelector('select').value, strength=form.querySelector('[name="strength"]').value;
+        if (!subject) {alert('Select a destination subject first.');return;}
+        if(!dictionaryEntries().some(k=>keywordKey(k.term,k.subject)===keywordKey(s.term,subject))) KEYWORDS.push({term:s.term,subject,strength,enabled:true});
+      }
+      KEYWORD_SUGGESTIONS=KEYWORD_SUGGESTIONS.filter(x=>x.id!==s.id);
+      saveAll();buildIndex();render();
+    };
+    $('#dict-scan').onclick=()=>{discoverApprovedRecords();saveAll();render();};
+  });
+  const merged = entries.filter(k=>!k.override || !k.builtIn).filter(k=>!k.builtIn || !KEYWORDS.some(x=>x.override && keywordKey(x.term,x.subject)===keywordKey(k.term,k.subject)));
+  return `<h2>Keyword Dictionary</h2><p class="lead">Manage terms that suggest connections to historical subjects. Strong and weak terms both require review. Disabling a term prevents new suggestions without removing approved relationships.</p>
+    <details class="rev"><summary><b>Add keyword manually</b></summary><form id="dict-add" class="form"><label>Keyword or phrase<input name="term" required maxlength="85"></label><label>Subject<select name="subject" required>${options}</select></label><label>Strength<select name="strength"><option value="strong">Strong</option><option value="weak">Weak</option></select></label><button class="btn btn-primary">Add keyword</button></form></details>
+    <details class="rev"><summary><b>Suggested Keywords (${KEYWORD_SUGGESTIONS.length})</b></summary><p class="meta">Candidates discovered from approved submissions and CSV records. Confirm the destination subject before adding them.</p><button id="dict-scan" class="btn btn-secondary" type="button">Scan approved records</button><div id="dict-suggestions">${KEYWORD_SUGGESTIONS.length ? KEYWORD_SUGGESTIONS.slice(0,20).map(s=>`<div class="rev-row" data-suggestion-row><div class="rev-main"><b>${h(s.term)}</b><p class="meta">From: ${h(s.sourceTitle)} · ${h(s.category)}</p><select aria-label="Destination subject"><option value="">Choose subject</option>${options}</select><select name="strength" aria-label="Strength">${['strong','weak'].map(level=>`<option value="${level}" ${s.strength===level?'selected':''}>${level[0].toUpperCase()+level.slice(1)}</option>`).join('')}</select></div><div class="rev-act"><button class="btn btn-secondary" data-suggest="${h(s.id)}" data-action="add">Add</button><button class="btn btn-quiet" data-suggest="${h(s.id)}" data-action="dismiss">Dismiss</button></div></div>`).join(''):'<p class="meta">No new candidates waiting.</p>'}</div></details>
+    <h3>Master keyword list</h3><div class="dict-filters"><input id="dict-search" placeholder="Search keywords or subjects…" aria-label="Search keywords"><select id="dict-category" aria-label="Filter by subject"><option value="">All subjects</option>${options}</select><select id="dict-strength" aria-label="Filter by strength"><option value="">All strengths</option><option value="strong">Strong</option><option value="weak">Weak</option></select></div>
+    <div class="dict-list-toolbar"><p class="meta" id="dict-count" aria-live="polite"></p><label class="dict-page-size-label">Terms per page <select id="dict-page-size" aria-label="Terms per page"><option value="10">10</option><option value="20">20</option></select></label></div>
+    <div id="dict-list">${merged.map(k=>`<div class="rev-row" data-dict-row data-term="${h(k.term)}" data-subject="${h(k.subject)}" data-subject-name="${h(nameOf(k.subject))}" data-strength="${h(k.strength)}"><div class="rev-main"><b>${h(k.term)}</b><p class="meta">${h(nameOf(k.subject))} · ${k.builtIn?'Built-in':'Added by curator'}</p></div><div class="rev-act"><label class="dict-strength-control">Strength <select data-dict-strength-select data-term="${h(k.term)}" data-subject="${h(k.subject)}" aria-label="Strength for ${h(k.term)}">${['strong','weak'].map(level=>`<option value="${level}" ${k.strength===level?'selected':''}>${level[0].toUpperCase()+level.slice(1)}</option>`).join('')}</select></label><button class="btn btn-secondary" data-dict-action="toggle" data-term="${h(k.term)}" data-subject="${h(k.subject)}">${k.enabled?'Disable':'Enable'}</button>${!k.builtIn?`<button class="btn btn-quiet" data-dict-action="edit" data-term="${h(k.term)}" data-subject="${h(k.subject)}">Edit</button><button class="btn btn-quiet" data-dict-action="delete" data-term="${h(k.term)}" data-subject="${h(k.subject)}">Delete</button>`:''}</div></div>`).join('')}</div><nav class="dict-pagination" aria-label="Keyword dictionary pages"><button class="btn btn-secondary" id="dict-prev" type="button">Previous</button><span id="dict-page-label" aria-live="polite">Page 1</span><button class="btn btn-secondary" id="dict-next" type="button">Next</button></nav>`;
 }
 
+function rightsReady(r) {
+  return !!(r.rightsHolder && r.ownershipStatus && r.copyrightStatus && r.reproductionPermission && r.rightsSource && r.accessRestrictions &&
+    r.rightsHolder !== 'Unknown — verification needed' && r.rightsHolder !== 'Unknown' &&
+    r.ownershipStatus !== 'Unknown' && r.copyrightStatus !== 'Unknown' &&
+    r.reproductionPermission !== 'Not verified' && r.accessRestrictions !== 'Not assessed' &&
+    (r.url || (r.physicalLocation || INSTITUTIONS[r.holder]?.address)));
+}
+function rightsFields(r) {
+  const fields = [
+    ['rightsHolder', 'Rights / copyright holder'], ['ownershipStatus', 'Ownership or custody status'],
+    ['copyrightStatus', 'Copyright status'], ['reproductionPermission', 'Reproduction permission'],
+    ['rightsSource', 'Evidence / source for rights decision'], ['accessRestrictions', 'Privacy / access restrictions']
+  ];
+  return fields.map(([key, label]) => `<label>${label}<input name="${key}" value="${h(r[key] || '')}" required></label>`).join('');
+}
+function adminRecordReview() {
+  onMount(() => {
+    $$('form[data-review-record]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const r = PENDING_IMPORTS.find(x => x.id === f.dataset.reviewRecord);
+      if (!r) return;
+      Object.assign(r, Object.fromEntries(new FormData(f)));
+      const action = e.submitter?.value || 'save';
+      if (action === 'approve') {
+        if (!rightsReady(r)) { alert('Complete and verify all rights, ownership, restriction and location fields before approving. Unknown rights are not permission.'); return; }
+        r.rightsVerified = true; r.reviewStatus = 'approved';
+        if (!IMPORTED.some(x => x.id === r.id)) IMPORTED.push({ ...r });
+      } else if (action === 'reject') r.reviewStatus = 'rejected';
+      logActivity(`${action}: CSV record “${r.title}”`); discoverApprovedRecords(); saveAll(); buildIndex(); render();
+    });
+    $$('form[data-legacy-rights]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const r = REC.get(f.dataset.legacyRights); if (!r) return;
+      const d = Object.fromEntries(new FormData(f));
+      const action = e.submitter?.value || 'save';
+      const verified = action === 'verify';
+      if (verified && !rightsReady({ ...r, ...d })) { alert('A complete, evidenced rights and restrictions review is required. Unknown is not a verified permission.'); return; }
+      RIGHTS_EDITS[r.id] = { ...d, rightsVerified: verified };
+      logActivity(`${verified ? 'Verified' : 'Saved'} rights metadata for “${r.title}”`);
+      saveAll(); buildIndex(); render();
+    });
+  });
+  const pending = PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending');
+  const previous = PENDING_IMPORTS.filter(r => r.reviewStatus !== 'pending');
+  const legacy = RECORDS.filter(r => !r.rightsVerified && r.source !== 'csv' && r.source !== 'demo' && r.source !== 'sub');
+  return `<p class="lead">CSV imports stay private until approved. Confirm rights ownership, reproduction permission, restrictions and holding location before publication. Existing catalogue records are flagged as unverified; do not assume permission to reuse their content.</p>
+    <h2>Pending CSV records (${pending.length})</h2>
+    ${pending.length ? pending.map(r => `<details class="rev"><summary>${h(r.title)} · ${h(instName(r.holder))}</summary>
+      <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>
+      ${rightsFields(r)}<label>Physical holding location (when applicable)<input name="physicalLocation" value="${h(r.physicalLocation || '')}"></label>
+      <div class="rev-act"><button class="btn btn-secondary" value="save">Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject">Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
+    ${previous.length ? `<h2>Decided imports</h2><p>${previous.map(r => `${h(r.title)} (${h(r.reviewStatus)})`).join(' · ')}</p>` : ''}
+    <h2>Existing catalogue rights audit (${legacy.length})</h2><p class="meta">These built-in catalogue entries lack verified rights metadata in the prototype. They remain discoverable as catalogue descriptions, but no permission to reproduce is implied.</p>
+    <details class="rev"><summary>Show records needing verification</summary>${legacy.map(r => `<details class="rev"><summary><a href="${href('r/' + r.id)}">${h(r.title)}</a> · ${h(instName(r.holder))}</summary><form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r)}<div class="rev-act"><button class="btn btn-secondary" value="save">Save rights details</button><button class="btn btn-primary" value="verify">Verify rights review</button></div></form></details>`).join('')}</details>`;
+}
 function adminSuggestions() {
-  onMount(() => $$('[data-sub]').forEach(b => b.onclick = () => {
-    const s = SUBS.find(x => x.id === b.dataset.id); if (!s) return;
-    s.status = b.dataset.sub; s.decidedAt = new Date().toISOString();
-    logActivity(`${b.dataset.sub === 'pending' ? 'Reopened' : b.dataset.sub === 'approved' ? 'Approved' : 'Rejected'} suggestion “${s.title}”`);
-    saveAll(); buildIndex(); render();
-  }));
+  onMount(() => {
+    $$('form[data-sub-review]').forEach(f => f.onsubmit = e => {
+      e.preventDefault(); const s = SUBS.find(x => x.id === f.dataset.subReview); if (!s) return;
+      Object.assign(s, Object.fromEntries(new FormData(f)));
+      const action = e.submitter?.value || 'save';
+      if (action === 'approved') {
+        const r = submissionToRecord(s);
+        if (!rightsReady({ ...r, physicalLocation: s.physicalLocation })) { alert('Verify rights holder, ownership, permissions, restrictions, evidence and physical location or URL before approval.'); return; }
+        s.rightsVerified = true;
+      }
+      if (action !== 'save') { s.status = action; s.decidedAt = new Date().toISOString(); }
+      logActivity(`${action} suggestion “${s.title}”`); saveAll(); buildIndex(); render();
+    });
+  });
   if (!SUBS.length) return `<p class="lead">No suggestions yet. They arrive from the public <a href="${href('suggest')}">Suggest a resource</a> form.</p>`;
-  return `<p class="lead">Check each link opens the institution's own record before approving. Approved suggestions appear in search.</p>
-    ${SUBS.map(s => `<article class="panel sub">
-      <div class="row-between"><h3>${h(s.title)}</h3>${statusWord(s.status)}</div>
-      <p class="meta">${h(s.holder)} · ${h(s.dateText || 'Date not given')} · ${h(s.place || 'Place not given')} · sent ${new Date(s.at).toLocaleDateString()}${s.name ? ' by ' + h(s.name) : ''}</p>
-      ${s.description ? `<p>${h(s.description)}</p>` : ''}
-      <p>${ext(s.url, h(s.url))}</p>
-      <div class="rev-act">${s.status === 'pending'
-        ? `<button class="btn btn-primary" data-sub="approved" data-id="${s.id}">Approve</button><button class="btn btn-quiet" data-sub="rejected" data-id="${s.id}">Reject</button>`
-        : `<button class="btn btn-quiet" data-sub="pending" data-id="${s.id}">Move back to pending</button>${s.status === 'approved' ? ` <a href="${href('r/sub-' + s.id)}">View in hub</a>` : ''}`}</div>
-    </article>`).join('')}`;
+  return `<p class="lead">Verify ownership and rights before approving. Unknown copyright or unverified permission is not sufficient.</p>
+    ${SUBS.map(s => `<article class="panel sub"><div class="row-between"><h3>${h(s.title)}</h3>${statusWord(s.status)}</div>
+      <p class="meta">${h(s.holder)} · ${h(s.format || 'digital')} · ${h(s.physicalLocation || 'No physical location')} · submitted ${new Date(s.at).toLocaleDateString()}</p>
+      <p>${h(s.description || '')}</p>${s.url ? `<p>${ext(s.url, 'Submitted link')}</p>` : '<p>Physical-only submission — no URL.</p>'}
+      <form class="form" data-sub-review="${h(s.id)}">${rightsFields(s)}
+      <div class="rev-act"><button class="btn btn-secondary" value="save">Save details</button>
+      ${s.status !== 'approved' ? `<button class="btn btn-primary" value="approved">Approve</button>` : `<a href="${href('r/sub-' + s.id)}">View record</a>`}
+      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button></div></form></article>`).join('')}`;
 }
 
 function adminInstitutions(p) {
@@ -129,11 +326,9 @@ function adminInstitutions(p) {
 }
 
 /* ---------- CSV import: a new institution can join with a spreadsheet ---------- */
-const SAMPLE_CSV = `id,title,date,link,institution,notes
-desmond-7,Affidavit of Service to Stipendiary Magistrate MacKay (dated 6 January 1947),7 January 1947,https://archives.novascotia.ca/desmond/archives/?ID=7,Nova Scotia Archives,Viola Desmond court file
-desmond-8,Affidavit of Service to Henry MacNeil (dated 6 January 1947),7 January 1947,https://archives.novascotia.ca/desmond/archives/?ID=8,Nova Scotia Archives,Viola Desmond court file
-desmond-9,Affidavit of Service to Stipendiary Magistrate MacKay and Henry MacNeil,7 January 1947,https://archives.novascotia.ca/desmond/archives/?ID=9,Nova Scotia Archives,Viola Desmond court file`;
-const CSV_GUESS = { id: /^(id|identifier|record.?id|accession|ref.?no)$/i, title: /title|name|heading/i, dateText: /date|year|span/i, url: /url|link|uri|web/i, holder: /institution|holder|repository|owner|held/i, description: /desc|notes?|scope|summary|abstract/i, creator: /creator|author|photographer|maker/i, resourceType: /type|format|material/i, placeText: /place|location|community|town/i };
+const CSV_HEADERS = ['id','title','date','link','institution','notes','creator','type','place','format','physical_location','access_instructions','rights_holder','ownership_status','copyright_status','reproduction_permission','rights_source','access_restrictions'];
+const SAMPLE_CSV = `${CSV_HEADERS.join(',')}\nDEMO-EXAMPLE,Sample physical archive item,1970,,Demo Archive,Physical-only sample,Unknown,Photograph,Halifax,physical,Archive reading room,Contact archive for appointment,Demo Archive,Institutional custody,Copyrighted,Permission required,Demo curator test assertion,By appointment`;
+const CSV_GUESS = { id: /^(id|identifier|record.?id|accession|ref.?no)$/i, title: /title|name|heading/i, dateText: /^date$|year|span/i, url: /^(url|link|uri|web)$/i, holder: /^institution$|^holder$|repository/i, description: /^description$|notes?|scope|summary|abstract/i, creator: /creator|author|photographer|maker/i, resourceType: /^type$|resource.?type/i, placeText: /^place$|community|town/i, format: /^format$|availability.?format/i, physicalLocation: /physical.?location|holding.?address/i, accessNote: /access.?instructions|access.?note/i, rightsHolder: /rights.?holder|copyright.?holder/i, ownershipStatus: /ownership.?status|custody.?status/i, copyrightStatus: /^copyright.?status$/i, reproductionPermission: /reproduction.?permission|reuse.?permission/i, rightsSource: /rights.?source|rights.?evidence/i, accessRestrictions: /access.?restrictions|privacy.?restrictions/i };
 function parseCsv(text) {
   const rows = []; let row = [], cell = '', q = false;
   for (let i = 0; i < text.length; i++) {
@@ -148,37 +343,50 @@ function parseCsv(text) {
 }
 function adminImport() {
   onMount(bindImporter);
-  return `<p class="lead">Paste a spreadsheet export (CSV). The hub guesses which column is which and shows you before anything is added. Rows without a link to the original record are refused.</p>
-    <p><button class="btn btn-secondary" id="csv-sample" type="button">Load a sample</button> <label class="btn btn-quiet">Choose a file<input type="file" id="csv-file" accept=".csv,text/csv" hidden></label></p>
-    <label class="sr-only" for="csv-text">CSV text</label><textarea id="csv-text" class="mono" rows="7" placeholder="id,title,date,link,institution,notes"></textarea>
+  return `<p class="lead">Paste a spreadsheet export (CSV). The hub guesses which column is which and shows you before anything is added. Digital records need a URL; physical-only records need a holding location. All imported records await curator approval and rights verification.</p>
+    <p><button class="btn btn-secondary" id="csv-sample" type="button">Load a sample</button> <button class="btn btn-secondary" id="csv-download" type="button">Download CSV template</button> <label class="btn btn-quiet">Choose a file<input type="file" id="csv-file" accept=".csv,text/csv" hidden></label></p>
+    <label class="sr-only" for="csv-text">CSV text</label><textarea id="csv-text" class="mono" rows="7" placeholder="Paste CSV with title, format, rights and holding location fields"></textarea>
     <div id="csv-map"></div><div id="csv-preview"></div>
+    <p>${PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending').length} CSV records pending approval. <a href="${href('admin/record-review')}">Review imported records</a></p>
     ${IMPORTED.length ? `<p>${statusWord('approved')} ${plural(IMPORTED.length, 'record')} imported. <a href="${href('search', { provider: 'csv' })}">See them in search</a> · <button class="linklike" id="csv-clear">Remove imported records</button></p>` : ''}`;
 }
 function bindImporter() {
   const ta = $('#csv-text');
   $('#csv-sample').onclick = () => { ta.value = SAMPLE_CSV; preview(); };
+  $('#csv-download').onclick = () => { const blob = new Blob([CSV_HEADERS.join(',') + '\r\n'], { type: 'text/csv;charset=utf-8' }); const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'connected-histories-import-template.csv'; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000); };
   $('#csv-file').onchange = e => { const f = e.target.files[0]; if (f) f.text().then(t => { ta.value = t; preview(); }); };
   const clr = $('#csv-clear'); if (clr) clr.onclick = () => { IMPORTED = []; logActivity('Removed imported records'); saveAll(); buildIndex(); render(); };
   ta.oninput = preview;
   let mapping = {};
+  let csvPage = 1;
+  let csvPageSize = 10;
   function preview() {
+    csvPage = 1;
     const rows = parseCsv(ta.value); if (rows.length < 2) { $('#csv-map').innerHTML = ''; $('#csv-preview').innerHTML = ''; return; }
     const head = rows[0];
     mapping = {};
     for (const [field, re] of Object.entries(CSV_GUESS)) { const i = head.findIndex(c => re.test(c.trim())); if (i >= 0 && !Object.values(mapping).includes(i)) mapping[field] = i; }
     $('#csv-map').innerHTML = `<h2 class="h3">Column mapping</h2><div class="mapgrid">${Object.keys(CSV_GUESS).map(f => `<label>${f}<select data-f="${f}"><option value="">None</option>${head.map((c, i) => `<option value="${i}" ${mapping[f] === i ? 'selected' : ''}>${h(c)}</option>`).join('')}</select></label>`).join('')}</div>`;
-    $$('#csv-map select').forEach(s => s.onchange = () => { if (s.value === '') delete mapping[s.dataset.f]; else mapping[s.dataset.f] = +s.value; show(); });
+    $$('#csv-map select').forEach(s => s.onchange = () => { if (s.value === '') delete mapping[s.dataset.f]; else mapping[s.dataset.f] = +s.value; csvPage = 1; show(); });
     show();
     function show() {
       const recs = rows.slice(1).map((r, n) => csvToRecord(r, mapping, n));
-      const ok = recs.filter(r => r.title && /^https?:\/\//.test(r.url)), bad = recs.length - ok.length;
+      const ok = recs.filter(r => r.title && ['digital','physical','both'].includes(r.format) && (r.format === 'physical' ? !!r.physicalLocation : /^https?:\/\/[^\s]+$/.test(r.url)) && (r.format !== 'both' || !!r.physicalLocation)), bad = recs.length - ok.length;
+      const pages = Math.max(1, Math.ceil(ok.length / csvPageSize));
+      csvPage = Math.min(Math.max(1, csvPage), pages);
+      const start = (csvPage - 1) * csvPageSize;
       $('#csv-preview').innerHTML = `<h2 class="h3">Preview</h2>
-        ${bad ? `<p class="notice notice-rejected">${plural(bad, 'row')} with no title or no link will be skipped.</p>` : ''}
-        <table class="tbl"><thead><tr><th>Title</th><th>Date read as</th><th>Held by</th><th>Linked to</th></tr></thead><tbody>${ok.slice(0, 6).map(r => { const d = parseDate(r.dateText); const l = linkEntities(r).filter(x => x.status === 'confirmed'); return `<tr><td>${h(r.title)}</td><td>${h(r.dateText)} → ${d.start ?? 'none'}</td><td>${h(instName(r.holder))}</td><td>${l.map(x => h(nameOf(x.id))).join(', ') || 'Nothing yet'}</td></tr>`; }).join('')}</tbody></table>
-        <button class="btn btn-primary" id="csv-go" ${ok.length ? '' : 'disabled'}>Add ${plural(ok.length, 'record')}</button>`;
+        ${bad ? `<p class="notice notice-rejected">${plural(bad, 'row')} with missing title, format, digital URL or physical location will be skipped.</p>` : ''}
+        <div class="dict-list-toolbar"><p class="meta">Showing ${ok.length ? start + 1 : 0}–${Math.min(start + csvPageSize, ok.length)} of ${ok.length} valid records</p><label class="dict-page-size-label">Records per page <select id="csv-page-size" aria-label="CSV preview records per page"><option value="10" ${csvPageSize === 10 ? 'selected' : ''}>10</option><option value="20" ${csvPageSize === 20 ? 'selected' : ''}>20</option></select></label></div>
+        <table class="tbl"><thead><tr><th>Title</th><th>Date read as</th><th>Held by</th><th>Linked to</th></tr></thead><tbody>${ok.slice(start, start + csvPageSize).map(r => { const d = parseDate(r.dateText); const l = linkEntities(r).filter(x => x.status === 'confirmed'); return `<tr><td>${h(r.title)}</td><td>${h(r.dateText)} → ${d.start ?? 'none'}</td><td>${h(instName(r.holder))}</td><td>${l.map(x => h(nameOf(x.id))).join(', ') || 'Nothing yet'}</td></tr>`; }).join('')}</tbody></table>
+        <nav class="dict-pagination" aria-label="CSV preview pages"><button class="btn btn-secondary" id="csv-prev" type="button" ${csvPage === 1 ? 'disabled' : ''}>Previous</button><span aria-live="polite">Page ${csvPage} of ${pages}</span><button class="btn btn-secondary" id="csv-next" type="button" ${csvPage === pages ? 'disabled' : ''}>Next</button></nav>
+        <button class="btn btn-primary" id="csv-go" ${ok.length ? '' : 'disabled'}>Queue ${plural(ok.length, 'record')} for review</button>`;
+      $('#csv-page-size').onchange = e => { csvPageSize = Number(e.target.value); csvPage = 1; show(); };
+      $('#csv-prev').onclick = () => { if (csvPage > 1) { csvPage--; show(); } };
+      $('#csv-next').onclick = () => { if (csvPage < pages) { csvPage++; show(); } };
       const g = $('#csv-go'); if (g) g.onclick = () => {
-        const fresh = ok.filter(r => !REC.has(r.id));
-        IMPORTED.push(...fresh); logActivity(`Imported ${plural(fresh.length, 'record')} from CSV`); saveAll(); buildIndex(); render();
+        const fresh = ok.filter(r => !REC.has(r.id) && !PENDING_IMPORTS.some(x => x.id === r.id));
+        PENDING_IMPORTS.push(...fresh.map(r => ({ ...r, reviewStatus: 'pending', rightsVerified: false }))); logActivity(`Queued ${plural(fresh.length, 'CSV record')} for curator review`); saveAll(); buildIndex(); render();
       };
     }
   }
@@ -186,19 +394,21 @@ function bindImporter() {
 function csvToRecord(row, m, n) {
   const g = f => m[f] != null ? (row[m[f]] || '').trim() : '';
   const instText = g('holder');
+  const format = (g('format') || (g('url') ? 'digital' : 'physical')).toLowerCase();
   let holder = Object.keys(INSTITUTIONS).find(k => norm(INSTITUTIONS[k].name) === norm(instText));
   if (!holder) {
     holder = 'csv-' + (norm(instText).replace(/\W+/g, '-') || 'unknown');
-    INST_EDITS[holder] = INST_EDITS[holder] || { name: instText || 'Unknown institution', kind: 'Added by CSV import', address: '', place: '', access: 'Visitor details not yet added.' };
+    INST_EDITS[holder] = INST_EDITS[holder] || { name: instText || 'Unknown institution', kind: 'Added by CSV import', address: g('physicalLocation'), place: '', access: g('accessNote') || 'Visitor details not yet added.' };
     INSTITUTIONS[holder] = { ...INST_EDITS[holder] };
   }
   if (!INSTITUTIONS.csv) INSTITUTIONS.csv = { name: 'CSV import', kind: 'Imported source', access: 'Imported by a curator.' };
   return {
     id: 'csv-' + (g('id') || n), source: 'csv', sourceRecordId: g('id') || String(n),
     title: g('title'), description: g('description'), dateText: g('dateText'),
-    resourceType: g('resourceType') || 'Record', resourceTypeRule: 'CSV column', holder, provider: 'csv', url: g('url'),
+    resourceType: g('resourceType') || 'Record', resourceTypeRule: 'CSV column', holder, provider: 'csv', url: g('url'), format, physicalLocation: g('physicalLocation'),
     reference: g('id'), creator: g('creator'), collection: 'CSV import', themeKey: 'csv:*', placesText: g('placeText'),
-    access: { status: 'Catalogue online', note: 'Check the linked record for access.' }, image: '',
+    access: { status: format === 'digital' ? 'Catalogue online' : 'Physical holding', note: g('accessNote') || (format === 'digital' ? 'Check linked catalogue.' : 'Contact the holding institution.') }, image: '',
+    rightsHolder: g('rightsHolder'), ownershipStatus: g('ownershipStatus'), copyrightStatus: g('copyrightStatus'), reproductionPermission: g('reproductionPermission'), rightsSource: g('rightsSource'), accessRestrictions: g('accessRestrictions'), rightsVerified: false,
     native: Object.fromEntries(row.map((v, i) => [String(i), v])),
     provenance: [`Imported from CSV on ${new Date().toISOString().slice(0, 10)}.`, `Columns mapped: ${Object.entries(m).map(([k, i]) => k + ' ← column ' + (i + 1)).join(', ')}.`]
   };
@@ -222,14 +432,14 @@ function adminSources() {
 function adminData() {
   onMount(() => {
     $('#exp').onclick = () => {
-      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, SUBS, INST_EDITS, ACTIVITY }, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, PENDING_IMPORTS, RIGHTS_EDITS, SUBS, INST_EDITS, ACTIVITY }, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'connected-histories-admin-backup.json'; a.click(); URL.revokeObjectURL(a.href);
     };
     $('#imp').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => {
-      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
+      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; PENDING_IMPORTS = d.PENDING_IMPORTS || []; RIGHTS_EDITS = d.RIGHTS_EDITS || {}; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
       catch { alert('That file is not a Connected Histories backup.'); } }); };
     $('#reset').onclick = () => { if (!confirm('Remove all decisions, imports, suggestions and edits saved in this browser?')) return;
-      CUR = {}; IMPORTED = []; SUBS = []; INST_EDITS = {}; ACTIVITY = []; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
+      CUR = {}; IMPORTED = []; PENDING_IMPORTS = []; RIGHTS_EDITS = {}; SUBS = []; INST_EDITS = {}; ACTIVITY = []; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
   });
   return `<p class="lead">Admin changes live in this browser. Download a backup to move them to another computer.</p>
     <p><button class="btn btn-secondary" id="exp">Download backup</button> <label class="btn btn-quiet">Restore from a backup<input type="file" id="imp" accept="application/json" hidden></label></p>

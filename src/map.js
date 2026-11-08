@@ -16,6 +16,7 @@ function mountRecordsMap(el, recs, opt = {}) {
     return;
   }
   const map = L.map(el, { scrollWheelZoom: false, attributionControl: true });
+  const holdingOnly = !!opt.holdingOnly;
   let active = true;
   CLEANUP.push(() => { active = false; map.remove(); });
   const tileSources = [
@@ -57,14 +58,14 @@ function mountRecordsMap(el, recs, opt = {}) {
   const bounds = [];
   // places
   const byPlace = new Map();
-  for (const r of recs) for (const p of (r.mapped || []).filter(p => Number.isFinite(PLACES[p]?.lat) && Number.isFinite(PLACES[p]?.lng))) { if (!byPlace.has(p)) byPlace.set(p, []); byPlace.get(p).push(r); }
+  for (const r of (holdingOnly ? [] : recs)) for (const p of (r.mapped || []).filter(p => Number.isFinite(PLACES[p]?.lat) && Number.isFinite(PLACES[p]?.lng))) { if (!byPlace.has(p)) byPlace.set(p, []); byPlace.get(p).push(r); }
   const holders = new Map();
   for (const r of recs) { const k = r.holder; if (!holders.has(k)) holders.set(k, []); holders.get(k).push(r); }
-  if (opt.institutionsOnly) for (const k of Object.keys(INSTITUTIONS)) holders.set(k, recsOf(k));
+  if (opt.institutionsOnly && !holdingOnly) for (const k of Object.keys(INSTITUTIONS)) holders.set(k, recsOf(k));
   // opt.focus = 'i:<institution>' or 'p:<place>': make sure it is on the map, then open it
   const [fk, fid] = String(opt.focus || '').split(':');
   if (fk === 'i' && INSTITUTIONS[fid] && !holders.has(fid)) holders.set(fid, recsOf(fid));
-  if (fk === 'p' && PLACES[fid]?.lat != null && !byPlace.has(fid)) byPlace.set(fid, recsOf(fid));
+  if (!holdingOnly && fk === 'p' && PLACES[fid]?.lat != null && !byPlace.has(fid)) byPlace.set(fid, recsOf(fid));
   const markers = {};
   // lines first (underneath)
   if (opt.lines) for (const [p, rs] of byPlace) {
@@ -85,11 +86,14 @@ function mountRecordsMap(el, recs, opt = {}) {
   const sq = L.divIcon({ className: 'inst-icon', html: '<span></span>', iconSize: [16, 16], iconAnchor: [8, 8] });
   const placed = new Map();
   for (const [k, rs] of holders) {
-    const I = INSTITUTIONS[k], pos = instLatLng(k); if (!pos) continue;
+    const I = INSTITUTIONS[k], pos = instLatLng(k); if (!pos || (holdingOnly && !pos.exact)) continue;
     let ll = pos.ll;
     if (!pos.exact) { const off = placed.get(I.place) || 0; placed.set(I.place, off + 1); ll = [ll[0] + off * 0.012, ll[1] + off * 0.018]; }   // nudge institutions sharing a community point
-    markers['i:' + k] = L.marker(ll, { icon: sq }).addTo(map).bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`)
-      .bindTooltip(I.name);
+    const tooltip = `<b>${h(I.name)}</b><br>${h(I.address || 'Street address not available')}`;
+    const marker = L.marker(ll, { icon: sq }).addTo(map)
+      .bindTooltip(tooltip, { direction: 'top', opacity: .97 });
+    if (!holdingOnly) marker.bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`);
+    markers['i:' + k] = marker;
     bounds.push(ll);
   }
   const pb = [...byPlace.keys()].map(p => [PLACES[p].lat, PLACES[p].lng]);   // frame the places; far-away holders show as lines running off-map
@@ -99,8 +103,12 @@ function mountRecordsMap(el, recs, opt = {}) {
   else if (bounds.length === 1) map.setView(bounds[0], 10);
   else map.setView([44.9, -63.5], 7);
   const fm = markers[opt.focus];
-  if (fm) map.setView(fm.getLatLng(), 12);
-  requestAnimationFrame(() => { if (active) { map.invalidateSize(); if (fm) fm.openPopup(); } });
+  if (fm) map.setView(fm.getLatLng(), 14);
+  if (holdingOnly && !bounds.length) {
+    status.textContent = 'An exact holding location has not been verified. See the record details for the known address or contact information.';
+    status.hidden = false;
+  }
+  requestAnimationFrame(() => { if (active) { map.invalidateSize(); if (fm && !holdingOnly) fm.openPopup(); } });
   const sizeTimer = setTimeout(() => { if (active) map.invalidateSize(); }, 180);
   CLEANUP.push(() => clearTimeout(sizeTimer));
 }
