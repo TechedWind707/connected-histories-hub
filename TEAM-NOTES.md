@@ -99,6 +99,9 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 | POC B5: delete a test submission | *Admin → Suggestions* has a **Delete** button (asks first) |
 | Mentor: duplicate detection | New *Admin → Duplicates*: flags records with the same original link, or the same title at the same holder (stronger if the date matches too). Curator picks "Same item" or "Different items"; nothing is merged or hidden. "Same item" adds "Also listed as" on the record pages. A CSV draft that looks like an existing record gets a warning before approval |
 | Mentor: dashboard shows pending work and possible errors | Dashboard "Needs attention" now lists automatic checks: duplicates, CSV drafts that look like existing records, records with no link and no address, dates that look wrong, holders with no address |
+| Rights audit couldn't be used (title opened the record instead of the form; Save demanded every field) | *Admin → Record approvals → Rights for harvested records* is now grouped by source. Each source has **one form for all its records** (check their terms-of-use page once, fill it in, apply), plus "Check records one by one". Save draft works with empty fields; "Mark rights as checked" still needs every field. Expand arrows on all admin lists. A source-wide review can be cleared in one click |
+| Header search suggestions cut off on the left (mid-size windows) | The list now shifts itself to stay on screen |
+| Carousel never paused | Pauses while the mouse is over it, focus is inside it, the tab is hidden, or the user prefers reduced motion |
 | Backup missed some admin data | Backup / restore / reset now include the keyword dictionary and duplicate decisions too |
 
 ## 5. Round 1 changes (prototype → full build)

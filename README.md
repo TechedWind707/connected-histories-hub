@@ -38,10 +38,6 @@ build.py           bundles everything (+ Leaflet) into index.html
 
 Edit files in `src/`, then run `python build.py`.
 
-## Left for David on purpose
-
-`carouselShouldPause()` in `src/widgets.js`. The carousel never pauses. Make it return `true` when the mouse is over it, focus is inside it, the tab is hidden, or the user prefers reduced motion. Hints are in the comment.
-
 Sources harvested: archives.novascotia.ca/africanns · archives.novascotia.ca/desmond · recherche-collection-search.bac-lac.gc.ca · warmuseum.ca/collections · halifax.ca/about-halifax/municipal-archives/source-guides/africville-sources · geogratis.gc.ca (CGNDB). Institution coordinates: OpenStreetMap (Nominatim), © OpenStreetMap contributors.
 Leaflet 1.9.4 © Volodymyr Agafonkin, BSD-2 (see `vendor/LEAFLET-LICENSE`).
 

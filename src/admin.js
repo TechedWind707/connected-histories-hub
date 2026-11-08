@@ -229,13 +229,14 @@ function rightsReady(r) {
     r.reproductionPermission !== 'Not verified' && r.accessRestrictions !== 'Not assessed' &&
     (r.url || (r.physicalLocation || INSTITUTIONS[r.holder]?.address)));
 }
-function rightsFields(r) {
+function rightsFields(r, blankUnknown = false) {
   const fields = [
     ['rightsHolder', 'Rights / copyright holder'], ['ownershipStatus', 'Ownership or custody status'],
     ['copyrightStatus', 'Copyright status'], ['reproductionPermission', 'Reproduction permission'],
     ['rightsSource', 'Evidence / source for rights decision'], ['accessRestrictions', 'Privacy / access restrictions']
   ];
-  return fields.map(([key, label]) => `<label>${label}<input name="${key}" value="${h(r[key] || '')}" required></label>`).join('');
+  const tips = { rightsSource: 'Link to the terms of use / copyright page, or the permission you hold' };
+  return fields.map(([key, label]) => `<label>${label}<input name="${key}" value="${h(blankUnknown && /^(Unknown|Not verified|Not assessed)/.test(r[key] || '') ? '' : (r[key] || ''))}" placeholder="${h(tips[key] || r[key] || '')}" required></label>`).join('');
 }
 function adminRecordReview() {
   onMount(() => {
@@ -255,7 +256,7 @@ function adminRecordReview() {
     $$('form[data-legacy-rights]').forEach(f => f.onsubmit = e => {
       e.preventDefault();
       const r = REC.get(f.dataset.legacyRights); if (!r) return;
-      const d = Object.fromEntries(new FormData(f));
+      const d = Object.fromEntries([...new FormData(f)].filter(([, v]) => String(v).trim()));
       const action = e.submitter?.value || 'save';
       const verified = action === 'verify';
       if (verified && !rightsReady({ ...r, ...d })) { alert('A complete, evidenced rights and restrictions review is required. Unknown is not a verified permission.'); return; }
@@ -263,19 +264,46 @@ function adminRecordReview() {
       logActivity(`${verified ? 'Verified' : 'Saved'} rights metadata for “${r.title}”`);
       saveAll(); buildIndex(); render();
     });
+    // one rights statement for every record from a source (rights rules are usually the same across a catalogue)
+    $$('form[data-source-rights]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const src = f.dataset.sourceRights, d = Object.fromEntries(new FormData(f));
+      const recs = RECORDS.filter(r => r.provider === src && r.source !== 'demo' && !r.rightsVerified);
+      if (!rightsReady({ ...d, url: 'x' })) { alert('Fill every field with what the source actually says. "Unknown" is not a permission.'); return; }
+      if (!confirm(`Apply this rights statement to ${recs.length} records from ${instName(src)}? Records already reviewed one by one are not changed.`)) return;
+      for (const r of recs) RIGHTS_EDITS[r.id] = { ...d, rightsVerified: true, rightsBy: 'source' };
+      logActivity(`Verified rights for ${recs.length} records from ${instName(src)} with one source statement`);
+      saveAll(); buildIndex(); render();
+    });
+    $$('[data-undo-source]').forEach(b => b.onclick = () => {
+      const src = b.dataset.undoSource; let n = 0;
+      for (const r of RECORDS) if (r.provider === src && RIGHTS_EDITS[r.id]) { delete RIGHTS_EDITS[r.id]; n++; }
+      logActivity(`Cleared rights reviews for ${n} records from ${instName(src)}`); saveAll(); buildIndex(); render();
+    });
   });
   const pending = PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending');
   const previous = PENDING_IMPORTS.filter(r => r.reviewStatus !== 'pending');
-  const legacy = RECORDS.filter(r => !r.rightsVerified && r.source !== 'csv' && r.source !== 'demo' && r.source !== 'sub');
+  const harvested = RECORDS.filter(r => r.source !== 'csv' && r.source !== 'demo' && r.source !== 'sub');
+  const legacy = harvested.filter(r => !r.rightsVerified);
   return `<p class="lead">CSV imports stay private until approved. Confirm rights ownership, reproduction permission, restrictions and holding location before publication. Existing catalogue records are flagged as unverified; do not assume permission to reuse their content.</p>
     <h2>Pending CSV records (${pending.length})</h2>
     ${pending.length ? pending.map(r => `<details class="rev"><summary>${h(r.title)} · ${h(instName(r.holder))}</summary>
       <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>${(d => d.length ? `<p class="notice">Possible duplicate of ${d.slice(0, 3).map(x => `<a href="${href('r/' + x.id)}">${h(x.title)}</a>`).join(', ')}. Check before approving.</p>` : '')(looksLikeExisting(r))}
       ${rightsFields(r)}<label>Physical holding location (when applicable)<input name="physicalLocation" value="${h(r.physicalLocation || '')}"></label>
-      <div class="rev-act"><button class="btn btn-secondary" value="save">Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject">Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
+      <div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject" formnovalidate>Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
     ${previous.length ? `<h2>Decided imports</h2><p>${previous.map(r => `${h(r.title)} (${h(r.reviewStatus)})`).join(' · ')}</p>` : ''}
-    <h2>Existing catalogue rights audit (${legacy.length})</h2><p class="meta">These built-in catalogue entries lack verified rights metadata in the prototype. They remain discoverable as catalogue descriptions, but no permission to reproduce is implied.</p>
-    <details class="rev"><summary>Show records needing verification</summary>${legacy.map(r => `<details class="rev"><summary><a href="${href('r/' + r.id)}">${h(r.title)}</a> · ${h(instName(r.holder))}</summary><form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r)}<div class="rev-act"><button class="btn btn-secondary" value="save">Save rights details</button><button class="btn btn-primary" value="verify">Verify rights review</button></div></form></details>`).join('')}</details>`;
+    <h2>Rights for harvested records (${legacy.length} to check)</h2>
+    <p class="meta">These came from the institutions' catalogues. Rights usually apply to a whole source, so check each source's terms of use once, then fix single records below if they differ. Fill in what the source actually says. "Unknown" is not a permission.</p>
+    ${[...new Set(harvested.map(r => r.provider))].map(src => {
+      const all = harvested.filter(r => r.provider === src), todo = all.filter(r => !r.rightsVerified), I = INSTITUTIONS[src];
+      return `<article class="panel sub"><div class="row-between"><h3>${h(instName(src))}</h3><span class="status status-${todo.length ? 'pending' : 'approved'}">${all.length - todo.length} of ${all.length} checked</span></div>
+        <p class="meta">Find their rights or terms-of-use page ${I?.web ? `starting from ${ext(I.web, 'their website')}` : ''}, then fill this in once for the whole source.</p>
+        <details class="rev"><summary>Rights for all ${plural(todo.length, 'unchecked record')} from this source</summary>
+          <form class="form" data-source-rights="${h(src)}">${rightsFields({})}<div class="rev-act"><button class="btn btn-primary">Apply to ${plural(todo.length, 'record')}</button>${all.length - todo.length ? `<button type="button" class="btn btn-quiet" data-undo-source="${h(src)}">Clear all reviews for this source</button>` : ''}</div></form></details>
+        ${todo.length ? `<details class="rev"><summary>Check records one by one (${todo.length})</summary>${todo.map(r => `<details class="rev"><summary>${h(r.title)} <span class="meta">· ${h(r.dateText || 'no date')}</span></summary>
+          <p class="meta"><a href="${href('r/' + r.id)}">Open record page</a>${r.url ? ' · ' + ext(r.url, 'Original catalogue page') : ''}</p>
+          <form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r, true)}<div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save draft</button><button class="btn btn-primary" value="verify">Mark rights as checked</button></div></form></details>`).join('')}</details>` : ''}
+      </article>`; }).join('')}`;
 }
 function adminSuggestions() {
   onMount(() => {
@@ -302,9 +330,9 @@ function adminSuggestions() {
       <p class="meta">${h(s.holder)} · ${h(s.format || 'digital')} · ${h(s.physicalLocation || 'No physical location')} · submitted ${new Date(s.at).toLocaleDateString()}</p>
       <p>${h(s.description || '')}</p>${s.url ? `<p>${ext(s.url, 'Submitted link')}</p>` : '<p>Physical-only submission — no URL.</p>'}
       <form class="form" data-sub-review="${h(s.id)}">${rightsFields(s)}
-      <div class="rev-act"><button class="btn btn-secondary" value="save">Save details</button>
+      <div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save details</button>
       ${s.status !== 'approved' ? `<button class="btn btn-primary" value="approved">Approve</button>` : `<a href="${href('r/sub-' + s.id)}">View record</a>`}
-      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
+      <button class="btn btn-quiet" value="rejected" formnovalidate>Reject</button><button class="btn btn-quiet" value="pending" formnovalidate>Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
 }
 
 function adminInstitutions(p) {

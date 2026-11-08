@@ -43,16 +43,11 @@ function mountCarousel() {
   restart();
   CLEANUP.push(() => clearInterval(timer));
 }
-/* ─── DAVID'S PIECE ──────────────────────────────────────────────────
-   The carousel never pauses right now, even when someone is reading a
-   slide. Make this return true when it SHOULD pause, for example:
-     • the mouse is over the carousel        (hint: el.matches(':hover'))
-     • keyboard focus is inside it           (hint: el.contains(document.activeElement))
-     • the browser tab is hidden             (hint: document.hidden)
-     • the user prefers reduced motion       (hint: matchMedia('(prefers-reduced-motion: reduce)').matches)
-   One line with || between the checks is enough.                       */
+/* Pause the carousel while someone is reading or using it:
+   mouse over it · keyboard focus inside it · tab hidden · reduced motion. */
 function carouselShouldPause(el) {
-  return false;
+  return el.matches(':hover') || el.contains(document.activeElement) || document.hidden
+    || matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 /* ---------- Mini knowledge graph --------------------------------------

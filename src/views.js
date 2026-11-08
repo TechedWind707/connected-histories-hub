@@ -126,6 +126,10 @@ function attachSuggest(inp, box) {
   let active = -1;
   const mark = (text, q) => { const i = norm(text).indexOf(norm(q)); return i < 0 ? h(text) : h(text.slice(0, i)) + '<b>' + h(text.slice(i, i + q.length)) + '</b>' + h(text.slice(i + q.length)); };
   const close = () => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); active = -1; };
+  // keep the list fully on screen, whichever side of the page the box sits on
+  const fit = () => { box.style.transform = ''; const r = box.getBoundingClientRect(), pad = 8;
+    const dx = r.left < pad ? pad - r.left : r.right > innerWidth - pad ? innerWidth - pad - r.right : 0;
+    if (dx) box.style.transform = `translateX(${dx}px)`; };
   const open = target => { close(); inp.blur(); location.hash = target; };
   inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-controls', box.id);
   inp.oninput = () => {
@@ -133,11 +137,11 @@ function attachSuggest(inp, box) {
     if (q.length < 2) { close(); return; }
     const pages = entityMatches(q, 5);
     const recs = runSearch({ q }).slice(0, 4);
-    if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; return; }
+    if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; fit(); return; }
     box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)}${x.count ? ' · ' + plural(x.count, 'record') : ''}</span></a>`).join('')}` : '')
       + (recs.length ? `<p class="sug-h">Records</p>${recs.map(r => `<a role="option" href="${href('r/' + r.id)}"><span>${mark(r.title, q)}</span><span class="meta">${h(r.dateText || '')}</span></a>`).join('')}` : '')
       + `<a role="option" class="sug-all" href="${href('search', { q })}">See all results for “${h(q)}”</a>`;
-    box.hidden = false; inp.setAttribute('aria-expanded', 'true'); active = -1;
+    box.hidden = false; fit(); inp.setAttribute('aria-expanded', 'true'); active = -1;
   };
   // pressing the mouse on the list must not blur the input (that used to close the list before the click landed)
   box.onmousedown = e => e.preventDefault();
@@ -313,7 +317,7 @@ function viewRecord(id) {
           <dt>Reproduction permission</dt><dd>${h(r.reproductionPermission)}</dd>
           <dt>Access restrictions</dt><dd>${h(r.accessRestrictions)}</dd>
           <dt>Rights source</dt><dd>${r.rightsSource ? ( /^https?:\/\//.test(r.rightsSource) ? ext(r.rightsSource, 'Rights statement') : h(r.rightsSource)) : 'Not recorded'}</dd>
-          <dt>Rights review</dt><dd>${r.rightsVerified ? 'Verified by curator' : 'Needs curator verification; no reuse permission implied'}</dd>
+          <dt>Rights review</dt><dd>${r.rightsVerified ? (r.rightsBy === 'source' ? `Checked by a curator for all records from ${h(instName(r.provider))}` : 'Verified by curator') : 'Needs curator verification; no reuse permission implied'}</dd>
           ${(same => same.length ? `<dt>Also listed as</dt><dd>${same.map(x => `<a href="${href('r/' + x.id)}">${h(x.reference || x.title)}</a>`).join(', ')} <span class="meta">(a curator marked these as the same item)</span></dd>` : '')(findDuplicates().filter(g => g.decision === 'same' && g.records.includes(r)).flatMap(g => g.records).filter((x, i, a) => x !== r && a.indexOf(x) === i))}
         </dl>
         ${subjects.length ? `<h2 class="h3">People, places and topics</h2><div class="tags">${subjects.map(l => tag(l.id)).join('')}</div>` : ''}

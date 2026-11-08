@@ -949,6 +949,9 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
 .plain li { padding: var(--space-3) 0; border-bottom: 1px solid var(--border); font-size: 15px; }
 .rev { border-bottom: 1px solid var(--border); padding: var(--space-2) 0; }
 .rev summary { display: flex; gap: var(--space-3); align-items: baseline; flex-wrap: wrap; }
+.rev > summary::before { content: '›'; display: inline-block; width: 1ch; color: var(--red); font-weight: 700; transition: transform .15s; }
+.rev[open] > summary::before { transform: rotate(90deg); }
+.rev > summary:hover { color: var(--red); }
 .rev-row { display: flex; justify-content: space-between; gap: var(--space-4); padding: var(--space-3) 0 var(--space-3) var(--space-6); border-top: 1px solid var(--border); flex-wrap: wrap; }
 .rev-act { display: flex; gap: var(--space-2); align-items: center; flex-wrap: wrap; }
 .sub { margin-bottom: var(--space-4); }
@@ -999,7 +1002,7 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
 .ecard .h3 { margin-bottom: var(--space-1); }
 
 .hdr-field { position: relative; }
-#hdr-suggest { left: auto; right: 0; width: min(440px, 92vw); color: var(--ink); }
+#hdr-suggest { left: auto; right: 0; width: min(440px, calc(100vw - 16px)); color: var(--ink); }
 @media (max-width: 640px) { .hdr-field { flex: 1; } #hdr-suggest { left: 0; width: auto; } }
 .inst-new { margin-top: var(--space-8); }
 .coord-row { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-4); }
@@ -2556,16 +2559,11 @@ function mountCarousel() {
   restart();
   CLEANUP.push(() => clearInterval(timer));
 }
-/* ─── DAVID'S PIECE ──────────────────────────────────────────────────
-   The carousel never pauses right now, even when someone is reading a
-   slide. Make this return true when it SHOULD pause, for example:
-     • the mouse is over the carousel        (hint: el.matches(':hover'))
-     • keyboard focus is inside it           (hint: el.contains(document.activeElement))
-     • the browser tab is hidden             (hint: document.hidden)
-     • the user prefers reduced motion       (hint: matchMedia('(prefers-reduced-motion: reduce)').matches)
-   One line with || between the checks is enough.                       */
+/* Pause the carousel while someone is reading or using it:
+   mouse over it · keyboard focus inside it · tab hidden · reduced motion. */
 function carouselShouldPause(el) {
-  return false;
+  return el.matches(':hover') || el.contains(document.activeElement) || document.hidden
+    || matchMedia('(prefers-reduced-motion: reduce)').matches;
 }
 
 /* ---------- Mini knowledge graph --------------------------------------
@@ -2901,6 +2899,10 @@ function attachSuggest(inp, box) {
   let active = -1;
   const mark = (text, q) => { const i = norm(text).indexOf(norm(q)); return i < 0 ? h(text) : h(text.slice(0, i)) + '<b>' + h(text.slice(i, i + q.length)) + '</b>' + h(text.slice(i + q.length)); };
   const close = () => { box.hidden = true; inp.setAttribute('aria-expanded', 'false'); active = -1; };
+  // keep the list fully on screen, whichever side of the page the box sits on
+  const fit = () => { box.style.transform = ''; const r = box.getBoundingClientRect(), pad = 8;
+    const dx = r.left < pad ? pad - r.left : r.right > innerWidth - pad ? innerWidth - pad - r.right : 0;
+    if (dx) box.style.transform = `translateX(${dx}px)`; };
   const open = target => { close(); inp.blur(); location.hash = target; };
   inp.setAttribute('role', 'combobox'); inp.setAttribute('aria-autocomplete', 'list'); inp.setAttribute('aria-controls', box.id);
   inp.oninput = () => {
@@ -2908,11 +2910,11 @@ function attachSuggest(inp, box) {
     if (q.length < 2) { close(); return; }
     const pages = entityMatches(q, 5);
     const recs = runSearch({ q }).slice(0, 4);
-    if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; return; }
+    if (!pages.length && !recs.length) { box.innerHTML = `<p class="sug-none">No matches for “${h(q)}”</p>`; box.hidden = false; fit(); return; }
     box.innerHTML = (pages.length ? `<p class="sug-h">Pages</p>${pages.map(x => `<a role="option" href="${href('e/' + x.id)}"><span>${mark(x.n.name, q)}</span><span class="meta">${typeLabel(x.n.type)}${x.count ? ' · ' + plural(x.count, 'record') : ''}</span></a>`).join('')}` : '')
       + (recs.length ? `<p class="sug-h">Records</p>${recs.map(r => `<a role="option" href="${href('r/' + r.id)}"><span>${mark(r.title, q)}</span><span class="meta">${h(r.dateText || '')}</span></a>`).join('')}` : '')
       + `<a role="option" class="sug-all" href="${href('search', { q })}">See all results for “${h(q)}”</a>`;
-    box.hidden = false; inp.setAttribute('aria-expanded', 'true'); active = -1;
+    box.hidden = false; fit(); inp.setAttribute('aria-expanded', 'true'); active = -1;
   };
   // pressing the mouse on the list must not blur the input (that used to close the list before the click landed)
   box.onmousedown = e => e.preventDefault();
@@ -3088,7 +3090,7 @@ function viewRecord(id) {
           <dt>Reproduction permission</dt><dd>${h(r.reproductionPermission)}</dd>
           <dt>Access restrictions</dt><dd>${h(r.accessRestrictions)}</dd>
           <dt>Rights source</dt><dd>${r.rightsSource ? ( /^https?:\/\//.test(r.rightsSource) ? ext(r.rightsSource, 'Rights statement') : h(r.rightsSource)) : 'Not recorded'}</dd>
-          <dt>Rights review</dt><dd>${r.rightsVerified ? 'Verified by curator' : 'Needs curator verification; no reuse permission implied'}</dd>
+          <dt>Rights review</dt><dd>${r.rightsVerified ? (r.rightsBy === 'source' ? `Checked by a curator for all records from ${h(instName(r.provider))}` : 'Verified by curator') : 'Needs curator verification; no reuse permission implied'}</dd>
           ${(same => same.length ? `<dt>Also listed as</dt><dd>${same.map(x => `<a href="${href('r/' + x.id)}">${h(x.reference || x.title)}</a>`).join(', ')} <span class="meta">(a curator marked these as the same item)</span></dd>` : '')(findDuplicates().filter(g => g.decision === 'same' && g.records.includes(r)).flatMap(g => g.records).filter((x, i, a) => x !== r && a.indexOf(x) === i))}
         </dl>
         ${subjects.length ? `<h2 class="h3">People, places and topics</h2><div class="tags">${subjects.map(l => tag(l.id)).join('')}</div>` : ''}
@@ -3429,13 +3431,14 @@ function rightsReady(r) {
     r.reproductionPermission !== 'Not verified' && r.accessRestrictions !== 'Not assessed' &&
     (r.url || (r.physicalLocation || INSTITUTIONS[r.holder]?.address)));
 }
-function rightsFields(r) {
+function rightsFields(r, blankUnknown = false) {
   const fields = [
     ['rightsHolder', 'Rights / copyright holder'], ['ownershipStatus', 'Ownership or custody status'],
     ['copyrightStatus', 'Copyright status'], ['reproductionPermission', 'Reproduction permission'],
     ['rightsSource', 'Evidence / source for rights decision'], ['accessRestrictions', 'Privacy / access restrictions']
   ];
-  return fields.map(([key, label]) => `<label>${label}<input name="${key}" value="${h(r[key] || '')}" required></label>`).join('');
+  const tips = { rightsSource: 'Link to the terms of use / copyright page, or the permission you hold' };
+  return fields.map(([key, label]) => `<label>${label}<input name="${key}" value="${h(blankUnknown && /^(Unknown|Not verified|Not assessed)/.test(r[key] || '') ? '' : (r[key] || ''))}" placeholder="${h(tips[key] || r[key] || '')}" required></label>`).join('');
 }
 function adminRecordReview() {
   onMount(() => {
@@ -3455,7 +3458,7 @@ function adminRecordReview() {
     $$('form[data-legacy-rights]').forEach(f => f.onsubmit = e => {
       e.preventDefault();
       const r = REC.get(f.dataset.legacyRights); if (!r) return;
-      const d = Object.fromEntries(new FormData(f));
+      const d = Object.fromEntries([...new FormData(f)].filter(([, v]) => String(v).trim()));
       const action = e.submitter?.value || 'save';
       const verified = action === 'verify';
       if (verified && !rightsReady({ ...r, ...d })) { alert('A complete, evidenced rights and restrictions review is required. Unknown is not a verified permission.'); return; }
@@ -3463,19 +3466,46 @@ function adminRecordReview() {
       logActivity(`${verified ? 'Verified' : 'Saved'} rights metadata for “${r.title}”`);
       saveAll(); buildIndex(); render();
     });
+    // one rights statement for every record from a source (rights rules are usually the same across a catalogue)
+    $$('form[data-source-rights]').forEach(f => f.onsubmit = e => {
+      e.preventDefault();
+      const src = f.dataset.sourceRights, d = Object.fromEntries(new FormData(f));
+      const recs = RECORDS.filter(r => r.provider === src && r.source !== 'demo' && !r.rightsVerified);
+      if (!rightsReady({ ...d, url: 'x' })) { alert('Fill every field with what the source actually says. "Unknown" is not a permission.'); return; }
+      if (!confirm(`Apply this rights statement to ${recs.length} records from ${instName(src)}? Records already reviewed one by one are not changed.`)) return;
+      for (const r of recs) RIGHTS_EDITS[r.id] = { ...d, rightsVerified: true, rightsBy: 'source' };
+      logActivity(`Verified rights for ${recs.length} records from ${instName(src)} with one source statement`);
+      saveAll(); buildIndex(); render();
+    });
+    $$('[data-undo-source]').forEach(b => b.onclick = () => {
+      const src = b.dataset.undoSource; let n = 0;
+      for (const r of RECORDS) if (r.provider === src && RIGHTS_EDITS[r.id]) { delete RIGHTS_EDITS[r.id]; n++; }
+      logActivity(`Cleared rights reviews for ${n} records from ${instName(src)}`); saveAll(); buildIndex(); render();
+    });
   });
   const pending = PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending');
   const previous = PENDING_IMPORTS.filter(r => r.reviewStatus !== 'pending');
-  const legacy = RECORDS.filter(r => !r.rightsVerified && r.source !== 'csv' && r.source !== 'demo' && r.source !== 'sub');
+  const harvested = RECORDS.filter(r => r.source !== 'csv' && r.source !== 'demo' && r.source !== 'sub');
+  const legacy = harvested.filter(r => !r.rightsVerified);
   return `<p class="lead">CSV imports stay private until approved. Confirm rights ownership, reproduction permission, restrictions and holding location before publication. Existing catalogue records are flagged as unverified; do not assume permission to reuse their content.</p>
     <h2>Pending CSV records (${pending.length})</h2>
     ${pending.length ? pending.map(r => `<details class="rev"><summary>${h(r.title)} · ${h(instName(r.holder))}</summary>
       <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>${(d => d.length ? `<p class="notice">Possible duplicate of ${d.slice(0, 3).map(x => `<a href="${href('r/' + x.id)}">${h(x.title)}</a>`).join(', ')}. Check before approving.</p>` : '')(looksLikeExisting(r))}
       ${rightsFields(r)}<label>Physical holding location (when applicable)<input name="physicalLocation" value="${h(r.physicalLocation || '')}"></label>
-      <div class="rev-act"><button class="btn btn-secondary" value="save">Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject">Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
+      <div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject" formnovalidate>Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
     ${previous.length ? `<h2>Decided imports</h2><p>${previous.map(r => `${h(r.title)} (${h(r.reviewStatus)})`).join(' · ')}</p>` : ''}
-    <h2>Existing catalogue rights audit (${legacy.length})</h2><p class="meta">These built-in catalogue entries lack verified rights metadata in the prototype. They remain discoverable as catalogue descriptions, but no permission to reproduce is implied.</p>
-    <details class="rev"><summary>Show records needing verification</summary>${legacy.map(r => `<details class="rev"><summary><a href="${href('r/' + r.id)}">${h(r.title)}</a> · ${h(instName(r.holder))}</summary><form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r)}<div class="rev-act"><button class="btn btn-secondary" value="save">Save rights details</button><button class="btn btn-primary" value="verify">Verify rights review</button></div></form></details>`).join('')}</details>`;
+    <h2>Rights for harvested records (${legacy.length} to check)</h2>
+    <p class="meta">These came from the institutions' catalogues. Rights usually apply to a whole source, so check each source's terms of use once, then fix single records below if they differ. Fill in what the source actually says. "Unknown" is not a permission.</p>
+    ${[...new Set(harvested.map(r => r.provider))].map(src => {
+      const all = harvested.filter(r => r.provider === src), todo = all.filter(r => !r.rightsVerified), I = INSTITUTIONS[src];
+      return `<article class="panel sub"><div class="row-between"><h3>${h(instName(src))}</h3><span class="status status-${todo.length ? 'pending' : 'approved'}">${all.length - todo.length} of ${all.length} checked</span></div>
+        <p class="meta">Find their rights or terms-of-use page ${I?.web ? `starting from ${ext(I.web, 'their website')}` : ''}, then fill this in once for the whole source.</p>
+        <details class="rev"><summary>Rights for all ${plural(todo.length, 'unchecked record')} from this source</summary>
+          <form class="form" data-source-rights="${h(src)}">${rightsFields({})}<div class="rev-act"><button class="btn btn-primary">Apply to ${plural(todo.length, 'record')}</button>${all.length - todo.length ? `<button type="button" class="btn btn-quiet" data-undo-source="${h(src)}">Clear all reviews for this source</button>` : ''}</div></form></details>
+        ${todo.length ? `<details class="rev"><summary>Check records one by one (${todo.length})</summary>${todo.map(r => `<details class="rev"><summary>${h(r.title)} <span class="meta">· ${h(r.dateText || 'no date')}</span></summary>
+          <p class="meta"><a href="${href('r/' + r.id)}">Open record page</a>${r.url ? ' · ' + ext(r.url, 'Original catalogue page') : ''}</p>
+          <form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r, true)}<div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save draft</button><button class="btn btn-primary" value="verify">Mark rights as checked</button></div></form></details>`).join('')}</details>` : ''}
+      </article>`; }).join('')}`;
 }
 function adminSuggestions() {
   onMount(() => {
@@ -3502,9 +3532,9 @@ function adminSuggestions() {
       <p class="meta">${h(s.holder)} · ${h(s.format || 'digital')} · ${h(s.physicalLocation || 'No physical location')} · submitted ${new Date(s.at).toLocaleDateString()}</p>
       <p>${h(s.description || '')}</p>${s.url ? `<p>${ext(s.url, 'Submitted link')}</p>` : '<p>Physical-only submission — no URL.</p>'}
       <form class="form" data-sub-review="${h(s.id)}">${rightsFields(s)}
-      <div class="rev-act"><button class="btn btn-secondary" value="save">Save details</button>
+      <div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save details</button>
       ${s.status !== 'approved' ? `<button class="btn btn-primary" value="approved">Approve</button>` : `<a href="${href('r/sub-' + s.id)}">View record</a>`}
-      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
+      <button class="btn btn-quiet" value="rejected" formnovalidate>Reject</button><button class="btn btn-quiet" value="pending" formnovalidate>Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
 }
 
 function adminInstitutions(p) {
