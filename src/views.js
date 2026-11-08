@@ -112,7 +112,11 @@ function bindSearchBox() {
     if (!q && !Object.keys(scope).length) return;
     go('search', { ...scope, q });       // keep the filters: search inside them
   };
-  $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
+  $$('[data-ex]', f).forEach(b => b.onclick = () => {
+    const page = mode === 'search' && entityMatches(b.dataset.ex, 1).find(x => x.rank === 0);
+    if (page) { location.hash = href('e/' + page.id); return; }
+    $('#q', f).value = b.dataset.ex; f.requestSubmit();
+  });
   const inp = $('#q', f), box = $('#suggest', f);
   if (mode !== 'search') return;
   attachSuggest(inp, box);
@@ -191,7 +195,9 @@ function viewSearch(_, p) {
   const withinTotal = within ? runSearch({ [withinKey]: within }).length : 0;
   const entityFilters = ['person', 'org', 'event', 'topic'].filter(k => p[k] && !(k === withinKey && p[k] === p.within));
   // the centre of the mini graph: the entity the query names, else the query itself
-  const top = p.q ? entityMatches(p.q, 1).find(x => x.rank <= 1) : null;
+  const matches = p.q ? entityMatches(p.q, 6).filter(x => x.rank <= 3) : [];
+  const top = matches.find(x => x.rank <= 1) || null;
+  const related = matches.filter(x => x !== top).slice(0, 5);   // other pages whose names match the words
   const focus = entityFilters.length ? p[entityFilters[0]] : (p.place || top?.id || null);
   onMount(bindSearchBox);
   onMount(() => {
@@ -218,6 +224,7 @@ function viewSearch(_, p) {
         ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.${p.q && Object.keys(scopeOf(p)).length ? ` <a href="${href('search', { q: p.q })}">Search all records for “${h(p.q)}”</a>.` : ''}</p></div>` : ''}
         <div class="rlist">${hits.slice(0, n).map(recordRow).join('')}</div>
         ${hits.length > n ? `<a class="btn btn-secondary more" href="${href('search', { ...p, n: n + 20, keep: 1 })}">Show more results</a>` : ''}
+        ${related.length && !within ? `<section class="related-pages"><h2 class="h3">Pages that match “${h(p.q)}”</h2>${related.map(x => `<a class="sim" href="${href('e/' + x.id)}">${h(x.n.name)}<span class="meta">${typeLabel(x.n.type)}${x.count ? ' · ' + plural(x.count, 'record') : ''}</span></a>`).join('')}</section>` : ''}
       </section>
       <aside class="side">
         <section class="panel">

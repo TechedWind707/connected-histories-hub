@@ -188,13 +188,19 @@ function scoreDoc(doc, qt) {
   let score = 0;
   for (const t of qt) {
     let best = 0;
-    if (/^\d{4}s?$/.test(t)) {                                    // year or decade
+    const isYear = /^\d{4}s?$/.test(t);
+    if (isYear) {                                                  // year or decade
       const y = parseInt(t), y2 = t.endsWith('s') ? y + 9 : y;
-      if (doc.r.dateStart != null && doc.r.dateStart <= y2 && doc.r.dateEnd >= y) best = 2.5;
+      const s0 = doc.r.dateStart, s1 = doc.r.dateEnd;
+      if (s0 != null && s0 <= y2 && s1 >= y) {
+        // dated inside the year first, then ranges that run through it (narrow ranges before wide ones)
+        best = s0 >= y && s1 <= y2 ? 4 : 2 + 1 / (1 + (s1 - s0) / 10);
+      }
     }
     for (const [toks, w] of doc.fields) {
-      if (toks.includes(t)) best = Math.max(best, w);
-      else if (t.length >= 3 && toks.some(x => x.startsWith(t))) best = Math.max(best, w * .7);
+      const wt = isYear ? Math.min(w, 1.5) : w;                    // a year only in the text ranks after real dates
+      if (toks.includes(t)) best = Math.max(best, wt);
+      else if (t.length >= 3 && toks.some(x => x.startsWith(t))) best = Math.max(best, wt * .7);
     }
     if (!best) return 0;                                           // every term must match somewhere
     score += best;
