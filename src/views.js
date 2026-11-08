@@ -95,7 +95,10 @@ function searchBox(q, mode = 'search', scope = {}) {
       </div>
       <button class="btn btn-primary" type="submit">${mode === 'ask' ? 'Ask' : 'Search'}</button>
     </div>
-    ${scoped ? '' : `<p class="sbox-ex">Try ${ex.map(x => `<button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button>`).join(', ')}</p>`}
+    ${scoped ? '' : mode === 'ask'
+      // questions are long: one per line
+      ? `<div class="sbox-ex sbox-ex-ask"><span>Try asking</span><ul>${ex.map(x => `<li><button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button></li>`).join('')}</ul></div>`
+      : `<p class="sbox-ex">Try ${ex.map(x => `<button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button>`).join(', ')}</p>`}
   </form>`;
 }
 function bindSearchBox() {

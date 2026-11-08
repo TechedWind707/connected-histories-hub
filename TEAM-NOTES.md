@@ -107,6 +107,7 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 | Try links went to results, dropdown went to the page | Both stay as they are, but results now start with a card when your words match a page ("Place · 9 records · Preston · Open the Preston page: highlights, map and connections") |
 | Clicking a Try example (e.g. Africville) went to results, not the page | Try examples that name a page now open that page, same as picking it from the dropdown. "1946" still goes to results. Typing and pressing Enter still gives results, with the page card on top |
 | Year search order was wrong; text matches missing | Searching a year now lists records dated in that year first, then records whose date range runs through it (narrowest ranges first), then records that only mention the year in their text. Pages whose names match (e.g. "Roseland Theatre (8 Nov 1946)") are listed under the results as "Pages that match" — before, they only appeared in the dropdown |
+| Ask examples were long sentences squeezed onto one line | On the Ask tab the examples are now a "Try asking" list, one question per line. Search examples stay on one line |
 | Type / Held by dropdowns only showed the picked option | Each dropdown now counts results as if its own choice were off, so you can switch directly to another option |
 | Backup missed some admin data | Backup / restore / reset now include the keyword dictionary and duplicate decisions too |
 
