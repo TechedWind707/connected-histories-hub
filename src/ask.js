@@ -94,17 +94,6 @@ let LLM = { key: '', model: 'claude-sonnet-4-5' };     // key kept in memory onl
 function viewAsk(p) {
   const a = composeAnswer(p.ask);
   onMount(bindSearchBox);
-  onMount(() => {
-    const f = $('#llm-form'); if (!f) return;
-    f.onsubmit = async e => {
-      e.preventDefault();
-      LLM.key = f.key.value.trim() || LLM.key; LLM.model = f.model.value.trim() || LLM.model;
-      if (!LLM.key) return;
-      const out = $('#llm-out'); out.innerHTML = '<p class="meta">Asking Claude, using only the sources listed…</p>';
-      try { out.innerHTML = await askClaude(p.ask, a.cites.length ? a.cites : a.hits.slice(0, 12)); }
-      catch (err) { out.innerHTML = `<p class="notice notice-rejected">Claude could not be reached (${h(err.message)}). The answer above is unaffected.</p>`; }
-    };
-  });
   return `<div class="wrap page search-page">
     ${searchBox(p.ask, 'ask')}
     <div class="two">
@@ -112,10 +101,6 @@ function viewAsk(p) {
         <h1 class="h2">${h(p.ask)}</h1>
         ${a.html}
         <p class="meta">This answer is built only from the sources listed. Nothing is added from general knowledge.</p>
-        <details class="llm"><summary>Have Claude phrase the answer</summary>
-          <p class="meta">Optional. Uses your own Anthropic API key, kept in memory and sent only to Anthropic. Claude sees only the listed sources, and any sentence without a source number is removed.</p>
-          <form id="llm-form" class="llm-form"><label class="sr-only" for="llm-key">API key</label><input id="llm-key" name="key" type="password" placeholder="Anthropic API key" value="${h(LLM.key)}" autocomplete="off"><label class="sr-only" for="llm-model">Model</label><input id="llm-model" name="model" value="${h(LLM.model)}"><button class="btn btn-secondary">Ask Claude</button></form>
-          <div id="llm-out"></div></details>
       </section>
       <aside class="side"><section class="panel">
         <h2 class="h3">Sources (${a.cites.length})</h2>

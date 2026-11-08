@@ -30,6 +30,7 @@ IMPORTED = IMPORTED.filter(x => x.rightsVerified);    // records added through t
 let SUBS = store.get('ch-submissions-v1', []);     // public "Suggest a resource" submissions
 let INST_EDITS = store.get('ch-inst-edits-v1', {}); // admin edits to institution access details (+ new institutions)
 let ACTIVITY = store.get('ch-activity-v1', []);
+let DUPS = store.get('ch-duplicates-v1', {});      // curator decisions on possible duplicates: { groupKey: 'same' | 'different' }
 let KEYWORDS = store.get('ch-keywords-v1', []);
 let KEYWORD_SUGGESTIONS = store.get('ch-keyword-suggestions-v1', []);
 let KEYWORD_DISMISSED = store.get('ch-keyword-dismissed-v1', []);
@@ -72,8 +73,35 @@ function applyInstEdits() { for (const [k, v] of Object.entries(INST_EDITS)) INS
 function saveAll() {
   store.set('ch-curator-v1', CUR); store.set('ch-imported-v1', IMPORTED); store.set('ch-pending-imports-v1', PENDING_IMPORTS); store.set('ch-rights-edits-v1', RIGHTS_EDITS); store.set('ch-submissions-v1', SUBS);
   store.set('ch-keywords-v1', KEYWORDS); store.set('ch-keyword-suggestions-v1', KEYWORD_SUGGESTIONS); store.set('ch-keyword-dismissed-v1', KEYWORD_DISMISSED); store.set('ch-keyword-disabled-v1', KEYWORD_DISABLED);
-  store.set('ch-inst-edits-v1', INST_EDITS); store.set('ch-activity-v1', ACTIVITY.slice(0, 60));
+  store.set('ch-inst-edits-v1', INST_EDITS); store.set('ch-duplicates-v1', DUPS); store.set('ch-activity-v1', ACTIVITY.slice(0, 60));
 }
+/* ═══ DUPLICATE CHECK ═══════════════════════════════════════════════
+   Flags records that may describe the same item. It never merges or hides
+   anything: a curator decides "same item" or "different items".
+   Strong = same original link, or same title + same date at the same holder.
+   Check  = same title at the same holder, different or missing date.        */
+const dupTitle = t => norm(t).replace(/[^a-z0-9]+/g, ' ').trim();
+function findDuplicates(pool = RECORDS) {
+  const groups = new Map();
+  const add = (key, why, strength, rs) => { if (rs.length > 1 && !groups.has(key)) groups.set(key, { key, why, strength, records: rs }); };
+  const by = f => { const m = new Map(); for (const r of pool) { const k = f(r); if (k) m.set(k, [...(m.get(k) || []), r]); } return m; };
+  for (const [u, rs] of by(r => r.url && r.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))) add('url|' + u, 'Same original link', 'strong', rs);
+  for (const [t, rs] of by(r => dupTitle(r.title) && r.holder + '|' + dupTitle(r.title))) {
+    const byDate = new Map(); const dk = r => /^(n\.?\s*d\.?|undated|s\.?\s*d\.?|unknown)$/i.test((r.dateText || '').trim()) ? '' : (r.dateText || '').trim();
+    for (const r of rs) byDate.set(dk(r), [...(byDate.get(dk(r)) || []), r]);
+    const same = [...byDate].filter(([d, x]) => d && x.length > 1);
+    for (const [d, x] of same) add('td|' + t + '|' + d, 'Same title and date, same holder', 'strong', x);
+    if (!same.length || same[0][1].length < rs.length) add('t|' + t, 'Same title, same holder', 'check', rs);
+  }
+  return [...groups.values()].map(g => ({ ...g, decision: DUPS[g.key] || '' }));
+}
+const openDuplicates = () => findDuplicates().filter(g => !g.decision);
+/* Does a new (not yet published) record look like one we already have? */
+function looksLikeExisting(r) {
+  const t = dupTitle(r.title || ''), u = (r.url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  return RECORDS.filter(x => x.id !== r.id && ((u && x.url && x.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') === u) || (t && dupTitle(x.title) === t && x.holder === r.holder)));
+}
+
 function logActivity(text) { ACTIVITY.unshift({ at: new Date().toISOString(), text }); }
 
 const DEMO_PHYSICAL = [

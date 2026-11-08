@@ -767,7 +767,9 @@ a.tag:hover { border-color: var(--border-strong); text-decoration: none; }
 .hero { padding: var(--space-20) 0 var(--space-8); }
 .display { font: 400 clamp(44px, 7vw, 72px)/.95 var(--font-display); letter-spacing: .5px; text-transform: uppercase; max-width: 18ch; margin: 0; }
 .script { font: 600 clamp(30px, 4vw, 40px)/1.1 var(--font-script); color: var(--gold); margin: var(--space-3) 0 var(--space-6); }
-.hero-lede { font-size: 19px; color: var(--ink-muted); max-width: 56ch; margin-bottom: var(--space-8); }
+.hero-lede { font-size: 19px; color: var(--ink-muted); max-width: 62ch; margin-bottom: var(--space-8); }
+.hero-lede span { display: block; text-wrap: balance; }
+.hero-lede span + span { margin-top: var(--space-2); }
 .hero-count { margin-top: var(--space-6); }
 .sbox { position: relative; max-width: 860px; }
 .sbox-mode { display: flex; gap: var(--space-6); margin-bottom: var(--space-3); }
@@ -831,7 +833,7 @@ a.tag:hover { border-color: var(--border-strong); text-decoration: none; }
 .ecard p:last-child { margin: var(--space-3) 0 0; font-size: 15px; }
 .map-cta { display: flex; justify-content: space-between; align-items: center; gap: var(--space-6); flex-wrap: wrap; margin-bottom: var(--space-4); }
 .map-cta p { margin: 0; color: var(--ink-muted); }
-.subnav { display: flex; gap: var(--space-6); flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: var(--space-8); }
+.subnav { display: flex; gap: var(--space-1) var(--space-5, 20px); flex-wrap: wrap; border-bottom: 1px solid var(--border); margin-bottom: var(--space-8); }
 .subnav a { color: var(--ink-muted); text-decoration: none; font-weight: 600; font-size: 15px; padding: var(--space-3) 0; border-bottom: 2px solid transparent; margin-bottom: -1px; }
 .subnav a:hover { color: var(--ink); }
 .subnav a[aria-current="page"] { color: var(--ink); border-bottom-color: var(--red); }
@@ -869,6 +871,10 @@ a.tag:hover { border-color: var(--border-strong); text-decoration: none; }
 .crumbs { font-size: 14px; margin-bottom: var(--space-4); }
 .crumbs a { color: var(--ink-muted); }
 .lead-meta { font-size: 15px; margin-bottom: var(--space-8); }
+.rec-status { margin: calc(-1 * var(--space-6)) 0 var(--space-8); display: flex; flex-wrap: wrap; gap: var(--space-2) var(--space-3); align-items: baseline; }
+.rec-status .meta { font-size: 15px; }
+.map-lead { margin-bottom: var(--space-6); }
+.map-lead .meta { display: block; font-size: 15px; margin-top: var(--space-1); text-wrap: pretty; }
 .two { display: grid; grid-template-columns: minmax(0, 1fr) 380px; gap: var(--space-12); align-items: start; }
 .two.even { grid-template-columns: 1fr 1fr; gap: var(--space-6); }
 .quotes { margin-bottom: var(--space-8); }
@@ -982,6 +988,7 @@ a.stat:hover { border-color: var(--border-strong); text-decoration: none; }
   .rrow { gap: var(--space-4); } .rrow-img { width: 72px; height: 72px; }
   .facts { grid-template-columns: 1fr; gap: var(--space-1); } .facts dd { margin-bottom: var(--space-3); }
   .form-2 { grid-template-columns: 1fr; }
+  .filters .check { grid-column: 1 / -1; padding-bottom: 0; }
   .filters { display: grid; grid-template-columns: 1fr 1fr; gap: var(--space-3); }
   .fsel select, .fsel input { min-width: 0; max-width: none; width: 100%; } .years { grid-column: 1 / -1; }
 }
@@ -1328,17 +1335,17 @@ const CGNDB = id => `https://geogratis.gc.ca/services/geoname/en/geonames/${id}`
 
 /* ---------- Holding / providing institutions ---------- */
 const INSTITUTIONS = {
-  nsa:    { name: 'Nova Scotia Archives', kind: 'Provincial archives', web: 'https://archives.novascotia.ca/', address: '6016 University Avenue, Halifax, NS', lat: 44.637921, lng: -63.586096, place: 'halifax', access: 'Public reading room. Many exhibit items are digitized online; check hours before visiting.', isSource: true },
-  lac:    { name: 'Library and Archives Canada', kind: 'Federal archives & library', web: 'https://library-archives.canada.ca/', address: '395 Wellington Street, Ottawa, ON', lat: 45.418500, lng: -75.704700, place: 'ottawa', access: 'Consult records on site or request copies. Some files must be ordered in advance.', isSource: true },
-  cwm:    { name: 'Canadian War Museum', kind: 'National museum', web: 'https://www.warmuseum.ca/collections/', address: '1 Vimy Place, Ottawa, ON', lat: 45.417041, lng: -75.717331, place: 'ottawa', access: 'Objects are held in the museum collection; not all are on display. Contact the museum for research access.', isSource: true },
-  hma:    { name: 'Halifax Municipal Archives', kind: 'Municipal archives', web: 'https://www.halifax.ca/about-halifax/municipal-archives', address: '81 Ilsley Ave, Unit 11, Burnside Industrial Park, Dartmouth, NS', lat: 44.701678, lng: -63.588931, place: 'dartmouth', access: 'In person by appointment (per halifax.ca). Many Africville records are digitized via the source guide.', isSource: true },
-  bccns:  { name: 'Black Cultural Centre for Nova Scotia', kind: 'Community museum & cultural centre', web: 'https://bccns.com/', address: '10 Cherry Brook Road, Cherry Brook, NS', lat: 44.703092, lng: -63.471913, place: 'cherry-brook', access: 'Contact the Centre about viewing items from its collection.', isPartner: true },
-  dhm:    { name: 'Dartmouth Heritage Museum', kind: 'Community museum', web: 'https://www.dartmouthheritagemuseum.ns.ca/', address: '26 Newcastle Street, Dartmouth, NS', lat: 44.666640, lng: -63.560000, place: 'dartmouth', access: 'Contact the institution to confirm current visitor access and collection availability.' },
-  acadia: { name: 'Esther Clark Wright Archives, Acadia University', kind: 'University archives', web: 'https://archives.acadiau.ca/', address: 'Vaughan Memorial Library, 50 Acadia Street, Wolfville, NS', lat: 45.089950, lng: -64.365170, place: 'wolfville', access: 'Contact the institution to confirm current visitor access and collection availability.' },
-  dal:    { name: 'Dalhousie University Archives', kind: 'University archives', web: 'https://libraries.dal.ca/find/university-archives.html', address: 'Killam Memorial Library, 6225 University Avenue, Halifax, NS', lat: 44.637410, lng: -63.591060, place: 'halifax', access: 'Contact the institution to confirm current visitor access and collection availability.' },
+  nsa:    { name: 'Nova Scotia Archives', kind: 'Provincial archives', web: 'https://archives.novascotia.ca/', address: '6016 University Avenue, Halifax, NS', lat: 44.6376048, lng: -63.5859567, pinNote: 'Pin = building (OpenStreetMap).', place: 'halifax', access: 'Public reading room. Many exhibit items are digitized online; check hours before visiting.', isSource: true },
+  lac:    { name: 'Library and Archives Canada', kind: 'Federal archives & library', web: 'https://library-archives.canada.ca/', address: '395 Wellington Street, Ottawa, ON', lat: 45.4198111, lng: -75.708185, pinNote: 'Pin = building (OpenStreetMap).', place: 'ottawa', access: 'Consult records on site or request copies. Some files must be ordered in advance.', isSource: true },
+  cwm:    { name: 'Canadian War Museum', kind: 'National museum', web: 'https://www.warmuseum.ca/collections/', address: '1 Vimy Place, Ottawa, ON', lat: 45.4170512, lng: -75.7169484, pinNote: 'Pin = building (OpenStreetMap).', place: 'ottawa', access: 'Objects are held in the museum collection; not all are on display. Contact the museum for research access.', isSource: true },
+  hma:    { name: 'Halifax Municipal Archives', kind: 'Municipal archives', web: 'https://www.halifax.ca/about-halifax/municipal-archives', address: '81 Ilsley Ave, Unit 11, Burnside Industrial Park, Dartmouth, NS', lat: 44.7019104, lng: -63.589363, pinNote: 'Pin = building (OpenStreetMap).', place: 'dartmouth', access: 'In person by appointment (per halifax.ca). Many Africville records are digitized via the source guide.', isSource: true },
+  bccns:  { name: 'Black Cultural Centre for Nova Scotia', kind: 'Community museum & cultural centre', web: 'https://bccns.com/', address: '10 Cherry Brook Road, Cherry Brook, NS', lat: 44.7031, lng: -63.4719, pinNote: 'Pin = street level on Cherry Brook Road (building not mapped in OpenStreetMap).', place: 'cherry-brook', access: 'Contact the Centre about viewing items from its collection.', isPartner: true },
+  dhm:    { name: 'Dartmouth Heritage Museum', kind: 'Community museum', web: 'https://www.dartmouthheritagemuseum.ns.ca/', address: '26 Newcastle Street, Dartmouth, NS', lat: 44.6666357, lng: -63.5600038, pinNote: 'Pin = building (OpenStreetMap).', place: 'dartmouth', access: 'Contact the institution to confirm current visitor access and collection availability.' },
+  acadia: { name: 'Esther Clark Wright Archives, Acadia University', kind: 'University archives', web: 'https://archives.acadiau.ca/', address: 'Vaughan Memorial Library, 50 Acadia Street, Wolfville, NS', lat: 45.0899465, lng: -64.3651679, pinNote: 'Pin = building (OpenStreetMap).', place: 'wolfville', access: 'Contact the institution to confirm current visitor access and collection availability.' },
+  dal:    { name: 'Dalhousie University Archives', kind: 'University archives', web: 'https://libraries.dal.ca/find/university-archives.html', address: 'Killam Memorial Library, 6225 University Avenue, Halifax, NS', lat: 44.6374101, lng: -63.5910584, pinNote: 'Pin = building (OpenStreetMap).', place: 'halifax', access: 'Contact the institution to confirm current visitor access and collection availability.' },
   nsm:    { name: 'Nova Scotia Museum (History Collection)', kind: 'Provincial museum', web: '', address: '', place: '', access: 'Holding location not confirmed — no map pin shown.' },
-  tna:    { name: 'The National Archives, Kew (UK)', kind: 'National archives (UK)', web: 'https://www.nationalarchives.gov.uk/', address: 'Kew, Richmond, Surrey, UK', lat: 51.480902, lng: -0.279872, place: '', access: 'Outside Canada. Original held in the UK; Nova Scotia Archives exhibit shows a copy.' },
-  bl:     { name: 'The British Library', kind: 'National library (UK)', web: 'https://www.bl.uk/', address: '96 Euston Road, London, UK', lat: 51.529800, lng: -0.127800, place: '', access: 'Outside Canada. Original held in the UK.' }
+  tna:    { name: 'The National Archives, Kew (UK)', kind: 'National archives (UK)', web: 'https://www.nationalarchives.gov.uk/', address: 'Kew, Richmond, Surrey, UK', lat: 51.4811155, lng: -0.2792096, pinNote: 'Pin = building (OpenStreetMap).', place: '', access: 'Outside Canada. Original held in the UK; Nova Scotia Archives exhibit shows a copy.' },
+  bl:     { name: 'The British Library', kind: 'National library (UK)', web: 'https://www.bl.uk/', address: '96 Euston Road, London, UK', lat: 51.5299119, lng: -0.1276918, pinNote: 'Pin = building (OpenStreetMap).', place: '', access: 'Outside Canada. Original held in the UK.' }
 };
 
 /* ---------- Gazetteer (CGNDB ids + coordinates, copied exactly) ----------
@@ -2131,6 +2138,7 @@ IMPORTED = IMPORTED.filter(x => x.rightsVerified);    // records added through t
 let SUBS = store.get('ch-submissions-v1', []);     // public "Suggest a resource" submissions
 let INST_EDITS = store.get('ch-inst-edits-v1', {}); // admin edits to institution access details (+ new institutions)
 let ACTIVITY = store.get('ch-activity-v1', []);
+let DUPS = store.get('ch-duplicates-v1', {});      // curator decisions on possible duplicates: { groupKey: 'same' | 'different' }
 let KEYWORDS = store.get('ch-keywords-v1', []);
 let KEYWORD_SUGGESTIONS = store.get('ch-keyword-suggestions-v1', []);
 let KEYWORD_DISMISSED = store.get('ch-keyword-dismissed-v1', []);
@@ -2173,8 +2181,35 @@ function applyInstEdits() { for (const [k, v] of Object.entries(INST_EDITS)) INS
 function saveAll() {
   store.set('ch-curator-v1', CUR); store.set('ch-imported-v1', IMPORTED); store.set('ch-pending-imports-v1', PENDING_IMPORTS); store.set('ch-rights-edits-v1', RIGHTS_EDITS); store.set('ch-submissions-v1', SUBS);
   store.set('ch-keywords-v1', KEYWORDS); store.set('ch-keyword-suggestions-v1', KEYWORD_SUGGESTIONS); store.set('ch-keyword-dismissed-v1', KEYWORD_DISMISSED); store.set('ch-keyword-disabled-v1', KEYWORD_DISABLED);
-  store.set('ch-inst-edits-v1', INST_EDITS); store.set('ch-activity-v1', ACTIVITY.slice(0, 60));
+  store.set('ch-inst-edits-v1', INST_EDITS); store.set('ch-duplicates-v1', DUPS); store.set('ch-activity-v1', ACTIVITY.slice(0, 60));
 }
+/* ═══ DUPLICATE CHECK ═══════════════════════════════════════════════
+   Flags records that may describe the same item. It never merges or hides
+   anything: a curator decides "same item" or "different items".
+   Strong = same original link, or same title + same date at the same holder.
+   Check  = same title at the same holder, different or missing date.        */
+const dupTitle = t => norm(t).replace(/[^a-z0-9]+/g, ' ').trim();
+function findDuplicates(pool = RECORDS) {
+  const groups = new Map();
+  const add = (key, why, strength, rs) => { if (rs.length > 1 && !groups.has(key)) groups.set(key, { key, why, strength, records: rs }); };
+  const by = f => { const m = new Map(); for (const r of pool) { const k = f(r); if (k) m.set(k, [...(m.get(k) || []), r]); } return m; };
+  for (const [u, rs] of by(r => r.url && r.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, ''))) add('url|' + u, 'Same original link', 'strong', rs);
+  for (const [t, rs] of by(r => dupTitle(r.title) && r.holder + '|' + dupTitle(r.title))) {
+    const byDate = new Map(); const dk = r => /^(n\.?\s*d\.?|undated|s\.?\s*d\.?|unknown)$/i.test((r.dateText || '').trim()) ? '' : (r.dateText || '').trim();
+    for (const r of rs) byDate.set(dk(r), [...(byDate.get(dk(r)) || []), r]);
+    const same = [...byDate].filter(([d, x]) => d && x.length > 1);
+    for (const [d, x] of same) add('td|' + t + '|' + d, 'Same title and date, same holder', 'strong', x);
+    if (!same.length || same[0][1].length < rs.length) add('t|' + t, 'Same title, same holder', 'check', rs);
+  }
+  return [...groups.values()].map(g => ({ ...g, decision: DUPS[g.key] || '' }));
+}
+const openDuplicates = () => findDuplicates().filter(g => !g.decision);
+/* Does a new (not yet published) record look like one we already have? */
+function looksLikeExisting(r) {
+  const t = dupTitle(r.title || ''), u = (r.url || '').replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '');
+  return RECORDS.filter(x => x.id !== r.id && ((u && x.url && x.url.replace(/^https?:\/\/(www\.)?/, '').replace(/\/$/, '') === u) || (t && dupTitle(x.title) === t && x.holder === r.holder)));
+}
+
 function logActivity(text) { ACTIVITY.unshift({ at: new Date().toISOString(), text }); }
 
 const DEMO_PHYSICAL = [
@@ -2453,7 +2488,7 @@ function mountRecordsMap(el, recs, opt = {}) {
     const tooltip = `<b>${h(I.name)}</b><br>${h(I.address || 'Street address not available')}`;
     const marker = L.marker(ll, { icon: sq }).addTo(map)
       .bindTooltip(tooltip, { direction: 'top', opacity: .97 });
-    if (!holdingOnly) marker.bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`);
+    if (!holdingOnly) marker.bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? h(I.pinNote || 'Pin = exact location.') : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`);
     markers['i:' + k] = marker;
     bounds.push(ll);
   }
@@ -2697,17 +2732,6 @@ let LLM = { key: '', model: 'claude-sonnet-4-5' };     // key kept in memory onl
 function viewAsk(p) {
   const a = composeAnswer(p.ask);
   onMount(bindSearchBox);
-  onMount(() => {
-    const f = $('#llm-form'); if (!f) return;
-    f.onsubmit = async e => {
-      e.preventDefault();
-      LLM.key = f.key.value.trim() || LLM.key; LLM.model = f.model.value.trim() || LLM.model;
-      if (!LLM.key) return;
-      const out = $('#llm-out'); out.innerHTML = '<p class="meta">Asking Claude, using only the sources listed…</p>';
-      try { out.innerHTML = await askClaude(p.ask, a.cites.length ? a.cites : a.hits.slice(0, 12)); }
-      catch (err) { out.innerHTML = `<p class="notice notice-rejected">Claude could not be reached (${h(err.message)}). The answer above is unaffected.</p>`; }
-    };
-  });
   return `<div class="wrap page search-page">
     ${searchBox(p.ask, 'ask')}
     <div class="two">
@@ -2715,10 +2739,6 @@ function viewAsk(p) {
         <h1 class="h2">${h(p.ask)}</h1>
         ${a.html}
         <p class="meta">This answer is built only from the sources listed. Nothing is added from general knowledge.</p>
-        <details class="llm"><summary>Have Claude phrase the answer</summary>
-          <p class="meta">Optional. Uses your own Anthropic API key, kept in memory and sent only to Anthropic. Claude sees only the listed sources, and any sentence without a source number is removed.</p>
-          <form id="llm-form" class="llm-form"><label class="sr-only" for="llm-key">API key</label><input id="llm-key" name="key" type="password" placeholder="Anthropic API key" value="${h(LLM.key)}" autocomplete="off"><label class="sr-only" for="llm-model">Model</label><input id="llm-model" name="model" value="${h(LLM.model)}"><button class="btn btn-secondary">Ask Claude</button></form>
-          <div id="llm-out"></div></details>
       </section>
       <aside class="side"><section class="panel">
         <h2 class="h3">Sources (${a.cites.length})</h2>
@@ -2804,7 +2824,7 @@ function viewHome() {
   <section class="hero"><div class="wrap">
     <h1 class="display">Find Black history across Canada</h1>
     <p class="script">Our Stories, Connected</p>
-    <p class="hero-lede">Search records held by archives, museums and community organizations. Every result takes you to the institution that holds the original.</p>
+    <p class="hero-lede"><span>Search records held by archives, museums and community organizations.</span> <span>Every result links to the institution that holds the original.</span></p>
     ${searchBox('')}
     <p class="meta hero-count">${RECORDS.length} records from ${nInst} institutions</p>
   </div></section>
@@ -2827,11 +2847,16 @@ function browseIds(t) {
 }
 
 /* ---------- search box (Search / Ask) ---------- */
-function searchBox(q, mode = 'search') {
+/* scope = filters already applied on the search page (e.g. person=…, from a
+   page's "Search within these"). A new query keeps them, so you search inside. */
+const SCOPE_KEYS = ['holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
+const scopeOf = p => Object.fromEntries(SCOPE_KEYS.filter(k => p[k]).map(k => [k, p[k]]));
+function searchBox(q, mode = 'search', scope = {}) {
+  const scoped = mode === 'search' && Object.keys(scope).length > 0;
   const ex = mode === 'ask'
     ? ['Where can I see records about Viola Desmond?', 'Photographs of Upper Hammonds Plains', 'Who is named in records about Five Mile Plains?']
     : ['Africville', 'Preston', 'Viola Desmond', 'No. 2 Construction Battalion', '1946'];
-  return `<form id="sbox" class="sbox" role="search">
+  return `<form id="sbox" class="sbox" role="search" data-scope="${h(JSON.stringify(scope))}">
     <div class="sbox-mode" role="tablist" aria-label="Search mode">
       <button type="button" role="tab" data-mode="search" aria-selected="${mode === 'search'}">Search</button>
       <button type="button" role="tab" data-mode="ask" aria-selected="${mode === 'ask'}">Ask a question</button>
@@ -2839,7 +2864,7 @@ function searchBox(q, mode = 'search') {
     <div class="sbox-row">
       <div class="sbox-field">
         <label class="sr-only" for="q">${mode === 'ask' ? 'Your question' : 'Search records'}</label>
-        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : 'People, places, communities, subjects, years'}"
+        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : scoped ? 'Search within these records' : 'People, places, communities, subjects, years'}"
           ${mode === 'search' ? 'role="combobox" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false"' : ''}>
         <div id="suggest" class="suggest" role="listbox" hidden></div>
       </div>
@@ -2853,9 +2878,15 @@ function bindSearchBox() {
   let mode = $('[aria-selected="true"]', f).dataset.mode;
   $$('.sbox-mode button', f).forEach(b => b.onclick = () => {
     if (b.dataset.mode === mode) return;
-    const q = $('#q', f).value; f.outerHTML = searchBox(q, b.dataset.mode); bindSearchBox(); $('#q').focus();
+    const q = $('#q', f).value; f.outerHTML = searchBox(q, b.dataset.mode, JSON.parse(f.dataset.scope || '{}')); bindSearchBox(); $('#q').focus();
   });
-  f.onsubmit = e => { e.preventDefault(); const q = $('#q', f).value.trim(); if (!q) return; mode === 'ask' ? go('search', { ask: q }) : go('search', { q }); };
+  f.onsubmit = e => {
+    e.preventDefault(); const q = $('#q', f).value.trim();
+    const scope = JSON.parse(f.dataset.scope || '{}');
+    if (mode === 'ask') { if (q) go('search', { ask: q }); return; }
+    if (!q && !Object.keys(scope).length) return;
+    go('search', { ...scope, q });       // keep the filters: search inside them
+  };
   $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
   const inp = $('#q', f), box = $('#suggest', f);
   if (mode !== 'search') return;
@@ -2937,18 +2968,18 @@ function viewSearch(_, p) {
   });
   const mapped = hits.filter(r => r.mapped.length).length;
   return `<div class="wrap page search-page">
-    ${searchBox(p.q || '')}
+    ${searchBox(p.q || '', 'search', scopeOf(p))}
     <div class="filters">
       ${sel('holder', 'Held by', r => [r.holder], instName)}
       ${sel('type', 'Type', r => [r.resourceType], x => x)}
       ${sel('place', 'Place', r => r.places, nameOf)}
       <form id="years" class="fsel years"><span>Years</span><div><input name="from" inputmode="numeric" placeholder="From" value="${h(p.from || '')}" aria-label="From year"><input name="to" inputmode="numeric" placeholder="To" value="${h(p.to || '')}" aria-label="To year"><button class="btn btn-quiet" type="submit">Apply</button></div></form>
     </div>
-    ${entityFilters.length ? `<p class="active-f">Showing records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
+    ${entityFilters.length ? `<p class="active-f">Searching within records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
     <div class="search-cols">
       <section aria-live="polite">
         <p class="count">${plural(hits.length, 'result')}${p.q ? ` for “${h(p.q)}”` : ''}</p>
-        ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.</p></div>` : ''}
+        ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.${p.q && Object.keys(scopeOf(p)).length ? ` <a href="${href('search', { q: p.q })}">Search all records for “${h(p.q)}”</a>.` : ''}</p></div>` : ''}
         <div class="rlist">${hits.slice(0, n).map(recordRow).join('')}</div>
         ${hits.length > n ? `<a class="btn btn-secondary more" href="${href('search', { ...p, n: n + 20, keep: 1 })}">Show more results</a>` : ''}
       </section>
@@ -3013,6 +3044,17 @@ function viewEntity(id) {
 }
 
 /* ═══ RECORD ═══════════════════════════════════════════════════════ */
+/* One overall review status per record, from three checks:
+   rights reviewed by a curator? suggested links still waiting? demo record? */
+function reviewStatus(r) {
+  const waiting = r.links.filter(l => l.status === 'suggested' && !CUR[r.id + '|' + l.id]).length;
+  const more = waiting ? ` ${plural(waiting, 'suggested link')} still waiting for a curator.` : '';
+  if (r.native?.demo) return { cls: 'rejected', label: 'Demo record', why: 'Made up to test physical-only records. Not a real item.' };
+  if (r.rightsVerified && !waiting) return { cls: 'approved', label: 'Fully reviewed', why: 'A curator checked this record, its links and its rights details.' };
+  if (r.rightsVerified) return { cls: 'pending', label: 'Partly reviewed', why: 'Rights details checked by a curator.' + more };
+  return { cls: 'pending', label: 'Catalogue description', why: `Described by ${instName(r.provider)}. Rights not yet reviewed here, so no permission to reuse is implied.` + more };
+}
+
 function viewRecord(id) {
   const r = REC.get(id);
   if (!r) return `<div class="wrap page"><h1>Record not found</h1></div>`;
@@ -3026,6 +3068,7 @@ function viewRecord(id) {
       <div>
         <h1 class="rec-title">${h(r.title)}</h1>
         <p class="meta lead-meta">${h(r.resourceType)} · ${dateLabel(r)}${r.dateApprox ? ' (approximate)' : ''}</p>
+        ${(s => `<p class="rec-status"><span class="status status-${s.cls}">${s.label}</span> <span class="meta">${h(s.why)}</span></p>`)(reviewStatus(r))}
         ${r.image ? `<figure class="rec-img"><img src="${h(r.image)}" alt="Preview of ${h(r.title)}" onerror="this.parentNode.remove()"><figcaption>Preview shown from ${h(instName(r.provider))}. ${h(r.imageCredit)}</figcaption></figure>` : ''}
         ${r.description ? `<p class="rec-desc">${h(r.description)}</p>` : ''}
         <p>${r.url ? `<a class="btn btn-primary" href="${h(r.url)}" target="_blank" rel="noopener">View original record<span aria-hidden="true"> ↗</span></a>` : `<a class="btn btn-primary" href="${hasPin(r.holder) ? href('map', { focus: 'i:' + r.holder, holding: 1 }) : href('e/' + r.holder)}">Find where this record is held</a>`}</p>
@@ -3046,6 +3089,7 @@ function viewRecord(id) {
           <dt>Access restrictions</dt><dd>${h(r.accessRestrictions)}</dd>
           <dt>Rights source</dt><dd>${r.rightsSource ? ( /^https?:\/\//.test(r.rightsSource) ? ext(r.rightsSource, 'Rights statement') : h(r.rightsSource)) : 'Not recorded'}</dd>
           <dt>Rights review</dt><dd>${r.rightsVerified ? 'Verified by curator' : 'Needs curator verification; no reuse permission implied'}</dd>
+          ${(same => same.length ? `<dt>Also listed as</dt><dd>${same.map(x => `<a href="${href('r/' + x.id)}">${h(x.reference || x.title)}</a>`).join(', ')} <span class="meta">(a curator marked these as the same item)</span></dd>` : '')(findDuplicates().filter(g => g.decision === 'same' && g.records.includes(r)).flatMap(g => g.records).filter((x, i, a) => x !== r && a.indexOf(x) === i))}
         </dl>
         ${subjects.length ? `<h2 class="h3">People, places and topics</h2><div class="tags">${subjects.map(l => tag(l.id)).join('')}</div>` : ''}
         <details class="prov"><summary>Provenance</summary><ol>${r.provenance.map(s => `<li>${h(s)}</li>`).join('')}</ol>
@@ -3070,7 +3114,7 @@ function viewMap(_, p) {
   });
   return `<div class="wrap page">
     <h1>Map</h1>
-    <p class="lead">Places named in ${plural(recs.length, 'record')}. Records without a confirmed place stay searchable without a pin.</p>
+    <p class="lead map-lead">Places named in ${plural(recs.length, 'record')}.<span class="meta">Records with no confirmed place have no pin, but you can still search them.</span></p>
     <div class="filters">
       <label class="fsel"><span>Topic</span><select id="map-topic"><option value="">Any</option>${topics.map(t => `<option value="${t}" ${p.topic === t ? 'selected' : ''}>${h(nameOf(t))}</option>`).join('')}</select></label>
       <label class="check"><input type="checkbox" id="map-lines" ${p.lines ? 'checked' : ''}> Show where records are held</label>
@@ -3164,16 +3208,16 @@ if (!INSTITUTIONS.community) INSTITUTIONS.community = { name: 'Community suggest
    and stores decisions with the curator's name.
    ===================================================================== */
 
-const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Record Linking'], ['dictionary', 'Keyword Dictionary'], ['record-review', 'Record approvals'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
+const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Record Linking'], ['dictionary', 'Keyword Dictionary'], ['record-review', 'Record approvals'], ['duplicates', 'Duplicates'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
 const statusWord = s => `<span class="status status-${s}">${{ pending: 'Pending', approved: 'Approved', confirmed: 'Approved', rejected: 'Rejected', suggested: 'Pending' }[s] || s}</span>`;
 
 function viewAdmin(tab = 'dashboard', p = {}) {
   if (!ADMIN_TABS.some(t => t[0] === tab)) tab = 'dashboard';
-  const body = { dashboard: adminDashboard, review: adminReview, dictionary: adminDictionary, 'record-review': adminRecordReview, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
+  const body = { dashboard: adminDashboard, review: adminReview, dictionary: adminDictionary, 'record-review': adminRecordReview, duplicates: adminDuplicates, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
   return `<div class="wrap page admin">
     <p class="notice">Admin demo. There is no sign-in in this prototype, and changes are saved in this browser only.</p>
     <h1>Admin</h1>
-    <nav class="subnav" aria-label="Admin sections">${ADMIN_TABS.map(([k, l]) => `<a href="${href('admin/' + k)}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'suggestions' && SUBS.some(s => s.status === 'pending') ? ` (${SUBS.filter(s => s.status === 'pending').length})` : ''}</a>`).join('')}</nav>
+    <nav class="subnav" aria-label="Admin sections">${ADMIN_TABS.map(([k, l]) => `<a href="${href('admin/' + k)}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'suggestions' && SUBS.some(s => s.status === 'pending') ? ` (${SUBS.filter(s => s.status === 'pending').length})` : ''}${k === 'duplicates' && openDuplicates().length ? ` (${openDuplicates().length})` : ''}</a>`).join('')}</nav>
     ${body}</div>`;
 }
 
@@ -3186,6 +3230,7 @@ function adminDashboard() {
     ['CSV records awaiting review', PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending').length, 'admin/record-review'],
     ['Records needing rights verification', RECORDS.filter(r => !r.rightsVerified).length, 'admin/record-review'],
     ['Record links to review', pendingLinks().length, 'admin/review'],
+    ['Possible duplicates', openDuplicates().length, 'admin/duplicates'],
     ['Holding institutions', new Set(RECORDS.map(r => r.holder)).size, 'admin/institutions'],
     ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, null],
     ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, null]
@@ -3193,11 +3238,43 @@ function adminDashboard() {
   return `<div class="stat-grid">${stats.map(([l, n, to]) => `<${to ? `a href="#/${to}"` : 'div'} class="stat"><span class="stat-n">${n}</span><span>${l}</span></${to ? 'a' : 'div'}>`).join('')}</div>
     <div class="two">
       <section><h2>Needs attention</h2><ul class="plain">
+        ${autoChecks().map(c => `<li>${c}</li>`).join('')}
         ${REVIEW_FLAGS.map(f => `<li>${f.ids ? f.ids.map(i => tag(i)).join(' ') + ' ' : ''}${h(f.why)} ${f.url ? ext(f.url, 'Read more') : ''}</li>`).join('')}
         <li>${RECORDS.filter(r => /Negro|mulatto|Slums/i.test(r.title)).length} titles use historical terms that are harmful today. They are kept as the source wrote them; consider adding a content note.</li>
       </ul></section>
       <section><h2>Recent activity</h2>${ACTIVITY.length ? `<ul class="plain">${ACTIVITY.slice(0, 10).map(a => `<li><span class="meta">${new Date(a.at).toLocaleString()}</span><br>${h(a.text)}</li>`).join('')}</ul>` : '<p class="meta">Nothing yet.</p>'}</section>
     </div>`;
+}
+
+/* Automatic checks for the dashboard: work waiting and likely mistakes. */
+function autoChecks() {
+  const out = [];
+  const dup = openDuplicates(); if (dup.length) out.push(`<a href="${href('admin/duplicates')}">${plural(dup.length, 'group')} of possible duplicate records</a> (${dup.filter(g => g.strength === 'strong').length} strong).`);
+  const pendDup = PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending' && looksLikeExisting(r).length);
+  if (pendDup.length) out.push(`<a href="${href('admin/record-review')}">${plural(pendDup.length, 'CSV record')} waiting for approval ${pendDup.length === 1 ? 'looks' : 'look'} like records already in the hub.</a>`);
+  const noWay = RECORDS.filter(r => !r.url && !r.physicalLocation && !INSTITUTIONS[r.holder]?.address);
+  if (noWay.length) out.push(`${plural(noWay.length, 'record')} ${noWay.length === 1 ? 'has' : 'have'} no original link and no address to visit.`);
+  const badDate = RECORDS.filter(r => r.dateStart != null && (r.dateStart < 1500 || r.dateStart > new Date().getFullYear()));
+  if (badDate.length) out.push(`${plural(badDate.length, 'record')} ${badDate.length === 1 ? 'has' : 'have'} a date that looks wrong: ${badDate.slice(0, 3).map(r => `<a href="${href('r/' + r.id)}">${h(r.title)}</a>`).join(', ')}.`);
+  const noAddr = Object.keys(INSTITUTIONS).filter(k => recsOf(k).length && !INSTITUTIONS[k].address);
+  if (noAddr.length) out.push(`${plural(noAddr.length, 'holding institution')} ${noAddr.length === 1 ? 'has' : 'have'} no visitor address: ${noAddr.map(k => h(instName(k))).join(', ')}.`);
+  return out;
+}
+
+function adminDuplicates() {
+  onMount(() => $$('[data-dup]').forEach(b => b.onclick = () => {
+    const g = findDuplicates().find(x => x.key === b.dataset.key); if (!g) return;
+    if (b.dataset.dup) DUPS[g.key] = b.dataset.dup; else delete DUPS[g.key];
+    logActivity(`${b.dataset.dup ? (b.dataset.dup === 'same' ? 'Marked as the same item' : 'Marked as different items') : 'Reopened'}: “${g.records[0].title}” (${g.records.length} records)`);
+    saveAll(); render();
+  }));
+  const all = findDuplicates().sort((a, b) => !!a.decision - !!b.decision || (a.strength === 'strong' ? -1 : 1));
+  if (!all.length) return '<p class="lead">No possible duplicates found.</p>';
+  return `<p class="lead">The hub checks every record for the same original link, or the same title at the same institution. Nothing is merged or hidden automatically: you decide.</p>
+    ${all.map(g => `<article class="panel sub"><div class="row-between"><h3>${h(g.records[0].title)}</h3>${g.decision ? statusWord(g.decision === 'same' ? 'approved' : 'rejected').replace(/>(Approved|Rejected)</, '>' + (g.decision === 'same' ? 'Same item' : 'Different items') + '<') : `<span class="status status-pending">${g.strength === 'strong' ? 'Likely duplicate' : 'Check'}</span>`}</div>
+      <p class="meta">${h(g.why)} · ${plural(g.records.length, 'record')} · ${h(instName(g.records[0].holder))}</p>
+      <ul class="plain">${g.records.map(r => `<li><a href="${href('r/' + r.id)}">${h(r.title)}</a> <span class="meta">${h(r.dateText || 'no date')} · ${h(r.reference || r.id)}</span>${r.url ? ' · ' + ext(r.url, 'original') : ''}</li>`).join('')}</ul>
+      <div class="rev-act">${g.decision ? `<button class="btn btn-quiet" data-dup="" data-key="${h(g.key)}">Undo</button>` : `<button class="btn btn-secondary" data-dup="same" data-key="${h(g.key)}">Same item</button><button class="btn btn-quiet" data-dup="different" data-key="${h(g.key)}">Different items</button>`}</div></article>`).join('')}`;
 }
 
 function linkActionMarkup(rid,eid,term) {
@@ -3393,7 +3470,7 @@ function adminRecordReview() {
   return `<p class="lead">CSV imports stay private until approved. Confirm rights ownership, reproduction permission, restrictions and holding location before publication. Existing catalogue records are flagged as unverified; do not assume permission to reuse their content.</p>
     <h2>Pending CSV records (${pending.length})</h2>
     ${pending.length ? pending.map(r => `<details class="rev"><summary>${h(r.title)} · ${h(instName(r.holder))}</summary>
-      <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>
+      <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>${(d => d.length ? `<p class="notice">Possible duplicate of ${d.slice(0, 3).map(x => `<a href="${href('r/' + x.id)}">${h(x.title)}</a>`).join(', ')}. Check before approving.</p>` : '')(looksLikeExisting(r))}
       ${rightsFields(r)}<label>Physical holding location (when applicable)<input name="physicalLocation" value="${h(r.physicalLocation || '')}"></label>
       <div class="rev-act"><button class="btn btn-secondary" value="save">Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject">Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
     ${previous.length ? `<h2>Decided imports</h2><p>${previous.map(r => `${h(r.title)} (${h(r.reviewStatus)})`).join(' · ')}</p>` : ''}
@@ -3411,6 +3488,10 @@ function adminSuggestions() {
         if (!rightsReady({ ...r, physicalLocation: s.physicalLocation })) { alert('Verify rights holder, ownership, permissions, restrictions, evidence and physical location or URL before approval.'); return; }
         s.rightsVerified = true;
       }
+      if (action === 'delete') {
+        if (!confirm(`Delete “${s.title}”? This removes the suggestion, and its record if it was approved.`)) return;
+        SUBS = SUBS.filter(x => x !== s); logActivity(`Deleted suggestion “${s.title}”`); saveAll(); buildIndex(); render(); return;
+      }
       if (action !== 'save') { s.status = action; s.decidedAt = new Date().toISOString(); }
       logActivity(`${action} suggestion “${s.title}”`); saveAll(); buildIndex(); render();
     });
@@ -3423,7 +3504,7 @@ function adminSuggestions() {
       <form class="form" data-sub-review="${h(s.id)}">${rightsFields(s)}
       <div class="rev-act"><button class="btn btn-secondary" value="save">Save details</button>
       ${s.status !== 'approved' ? `<button class="btn btn-primary" value="approved">Approve</button>` : `<a href="${href('r/sub-' + s.id)}">View record</a>`}
-      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button></div></form></article>`).join('')}`;
+      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
 }
 
 function adminInstitutions(p) {
@@ -3453,6 +3534,8 @@ function adminInstitutions(p) {
       const k = f.dataset.inst, d = Object.fromEntries(new FormData(f)), err = check(d);
       if (err) { $('.form-err', f).textContent = err; $('.form-err', f).hidden = false; return; }
       INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
+      const O = ORIGINAL_INST[k] || {};   // a new pin entered here is the admin's, not OpenStreetMap's
+      INST_EDITS[k].pinNote = (+d.lat === O.lat && +d.lng === O.lng) ? (O.pinNote || '') : (d.lat ? 'Pin = exact location (entered in Admin).' : '');
       logActivity(`Updated details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
     });
     const nf = $('#inst-new');
@@ -3588,14 +3671,14 @@ function adminSources() {
 function adminData() {
   onMount(() => {
     $('#exp').onclick = () => {
-      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, PENDING_IMPORTS, RIGHTS_EDITS, SUBS, INST_EDITS, ACTIVITY }, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, PENDING_IMPORTS, RIGHTS_EDITS, SUBS, INST_EDITS, ACTIVITY, KEYWORDS, KEYWORD_SUGGESTIONS, KEYWORD_DISMISSED, KEYWORD_DISABLED, DUPS }, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'connected-histories-admin-backup.json'; a.click(); URL.revokeObjectURL(a.href);
     };
     $('#imp').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => {
-      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; PENDING_IMPORTS = d.PENDING_IMPORTS || []; RIGHTS_EDITS = d.RIGHTS_EDITS || {}; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
+      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; PENDING_IMPORTS = d.PENDING_IMPORTS || []; RIGHTS_EDITS = d.RIGHTS_EDITS || {}; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; KEYWORDS = d.KEYWORDS || []; KEYWORD_SUGGESTIONS = d.KEYWORD_SUGGESTIONS || []; KEYWORD_DISMISSED = d.KEYWORD_DISMISSED || []; KEYWORD_DISABLED = d.KEYWORD_DISABLED || []; DUPS = d.DUPS || {}; applyInstEdits(); logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
       catch { alert('That file is not a Connected Histories backup.'); } }); };
     $('#reset').onclick = () => { if (!confirm('Remove all decisions, imports, suggestions and edits saved in this browser?')) return;
-      CUR = {}; IMPORTED = []; PENDING_IMPORTS = []; RIGHTS_EDITS = {}; SUBS = []; INST_EDITS = {}; ACTIVITY = []; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
+      CUR = {}; IMPORTED = []; PENDING_IMPORTS = []; RIGHTS_EDITS = {}; SUBS = []; INST_EDITS = {}; ACTIVITY = []; KEYWORDS = []; KEYWORD_SUGGESTIONS = []; KEYWORD_DISMISSED = []; KEYWORD_DISABLED = []; DUPS = {}; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
   });
   return `<p class="lead">Admin changes live in this browser. Download a backup to move them to another computer.</p>
     <p><button class="btn btn-secondary" id="exp">Download backup</button> <label class="btn btn-quiet">Restore from a backup<input type="file" id="imp" accept="application/json" hidden></label></p>

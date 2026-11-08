@@ -49,7 +49,7 @@ function viewHome() {
   <section class="hero"><div class="wrap">
     <h1 class="display">Find Black history across Canada</h1>
     <p class="script">Our Stories, Connected</p>
-    <p class="hero-lede">Search records held by archives, museums and community organizations. Every result takes you to the institution that holds the original.</p>
+    <p class="hero-lede"><span>Search records held by archives, museums and community organizations.</span> <span>Every result links to the institution that holds the original.</span></p>
     ${searchBox('')}
     <p class="meta hero-count">${RECORDS.length} records from ${nInst} institutions</p>
   </div></section>
@@ -72,11 +72,16 @@ function browseIds(t) {
 }
 
 /* ---------- search box (Search / Ask) ---------- */
-function searchBox(q, mode = 'search') {
+/* scope = filters already applied on the search page (e.g. person=…, from a
+   page's "Search within these"). A new query keeps them, so you search inside. */
+const SCOPE_KEYS = ['holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
+const scopeOf = p => Object.fromEntries(SCOPE_KEYS.filter(k => p[k]).map(k => [k, p[k]]));
+function searchBox(q, mode = 'search', scope = {}) {
+  const scoped = mode === 'search' && Object.keys(scope).length > 0;
   const ex = mode === 'ask'
     ? ['Where can I see records about Viola Desmond?', 'Photographs of Upper Hammonds Plains', 'Who is named in records about Five Mile Plains?']
     : ['Africville', 'Preston', 'Viola Desmond', 'No. 2 Construction Battalion', '1946'];
-  return `<form id="sbox" class="sbox" role="search">
+  return `<form id="sbox" class="sbox" role="search" data-scope="${h(JSON.stringify(scope))}">
     <div class="sbox-mode" role="tablist" aria-label="Search mode">
       <button type="button" role="tab" data-mode="search" aria-selected="${mode === 'search'}">Search</button>
       <button type="button" role="tab" data-mode="ask" aria-selected="${mode === 'ask'}">Ask a question</button>
@@ -84,7 +89,7 @@ function searchBox(q, mode = 'search') {
     <div class="sbox-row">
       <div class="sbox-field">
         <label class="sr-only" for="q">${mode === 'ask' ? 'Your question' : 'Search records'}</label>
-        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : 'People, places, communities, subjects, years'}"
+        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : scoped ? 'Search within these records' : 'People, places, communities, subjects, years'}"
           ${mode === 'search' ? 'role="combobox" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false"' : ''}>
         <div id="suggest" class="suggest" role="listbox" hidden></div>
       </div>
@@ -98,9 +103,15 @@ function bindSearchBox() {
   let mode = $('[aria-selected="true"]', f).dataset.mode;
   $$('.sbox-mode button', f).forEach(b => b.onclick = () => {
     if (b.dataset.mode === mode) return;
-    const q = $('#q', f).value; f.outerHTML = searchBox(q, b.dataset.mode); bindSearchBox(); $('#q').focus();
+    const q = $('#q', f).value; f.outerHTML = searchBox(q, b.dataset.mode, JSON.parse(f.dataset.scope || '{}')); bindSearchBox(); $('#q').focus();
   });
-  f.onsubmit = e => { e.preventDefault(); const q = $('#q', f).value.trim(); if (!q) return; mode === 'ask' ? go('search', { ask: q }) : go('search', { q }); };
+  f.onsubmit = e => {
+    e.preventDefault(); const q = $('#q', f).value.trim();
+    const scope = JSON.parse(f.dataset.scope || '{}');
+    if (mode === 'ask') { if (q) go('search', { ask: q }); return; }
+    if (!q && !Object.keys(scope).length) return;
+    go('search', { ...scope, q });       // keep the filters: search inside them
+  };
   $$('[data-ex]', f).forEach(b => b.onclick = () => { $('#q', f).value = b.dataset.ex; f.requestSubmit(); });
   const inp = $('#q', f), box = $('#suggest', f);
   if (mode !== 'search') return;
@@ -182,18 +193,18 @@ function viewSearch(_, p) {
   });
   const mapped = hits.filter(r => r.mapped.length).length;
   return `<div class="wrap page search-page">
-    ${searchBox(p.q || '')}
+    ${searchBox(p.q || '', 'search', scopeOf(p))}
     <div class="filters">
       ${sel('holder', 'Held by', r => [r.holder], instName)}
       ${sel('type', 'Type', r => [r.resourceType], x => x)}
       ${sel('place', 'Place', r => r.places, nameOf)}
       <form id="years" class="fsel years"><span>Years</span><div><input name="from" inputmode="numeric" placeholder="From" value="${h(p.from || '')}" aria-label="From year"><input name="to" inputmode="numeric" placeholder="To" value="${h(p.to || '')}" aria-label="To year"><button class="btn btn-quiet" type="submit">Apply</button></div></form>
     </div>
-    ${entityFilters.length ? `<p class="active-f">Showing records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
+    ${entityFilters.length ? `<p class="active-f">Searching within records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
     <div class="search-cols">
       <section aria-live="polite">
         <p class="count">${plural(hits.length, 'result')}${p.q ? ` for “${h(p.q)}”` : ''}</p>
-        ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.</p></div>` : ''}
+        ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.${p.q && Object.keys(scopeOf(p)).length ? ` <a href="${href('search', { q: p.q })}">Search all records for “${h(p.q)}”</a>.` : ''}</p></div>` : ''}
         <div class="rlist">${hits.slice(0, n).map(recordRow).join('')}</div>
         ${hits.length > n ? `<a class="btn btn-secondary more" href="${href('search', { ...p, n: n + 20, keep: 1 })}">Show more results</a>` : ''}
       </section>
@@ -258,6 +269,17 @@ function viewEntity(id) {
 }
 
 /* ═══ RECORD ═══════════════════════════════════════════════════════ */
+/* One overall review status per record, from three checks:
+   rights reviewed by a curator? suggested links still waiting? demo record? */
+function reviewStatus(r) {
+  const waiting = r.links.filter(l => l.status === 'suggested' && !CUR[r.id + '|' + l.id]).length;
+  const more = waiting ? ` ${plural(waiting, 'suggested link')} still waiting for a curator.` : '';
+  if (r.native?.demo) return { cls: 'rejected', label: 'Demo record', why: 'Made up to test physical-only records. Not a real item.' };
+  if (r.rightsVerified && !waiting) return { cls: 'approved', label: 'Fully reviewed', why: 'A curator checked this record, its links and its rights details.' };
+  if (r.rightsVerified) return { cls: 'pending', label: 'Partly reviewed', why: 'Rights details checked by a curator.' + more };
+  return { cls: 'pending', label: 'Catalogue description', why: `Described by ${instName(r.provider)}. Rights not yet reviewed here, so no permission to reuse is implied.` + more };
+}
+
 function viewRecord(id) {
   const r = REC.get(id);
   if (!r) return `<div class="wrap page"><h1>Record not found</h1></div>`;
@@ -271,6 +293,7 @@ function viewRecord(id) {
       <div>
         <h1 class="rec-title">${h(r.title)}</h1>
         <p class="meta lead-meta">${h(r.resourceType)} · ${dateLabel(r)}${r.dateApprox ? ' (approximate)' : ''}</p>
+        ${(s => `<p class="rec-status"><span class="status status-${s.cls}">${s.label}</span> <span class="meta">${h(s.why)}</span></p>`)(reviewStatus(r))}
         ${r.image ? `<figure class="rec-img"><img src="${h(r.image)}" alt="Preview of ${h(r.title)}" onerror="this.parentNode.remove()"><figcaption>Preview shown from ${h(instName(r.provider))}. ${h(r.imageCredit)}</figcaption></figure>` : ''}
         ${r.description ? `<p class="rec-desc">${h(r.description)}</p>` : ''}
         <p>${r.url ? `<a class="btn btn-primary" href="${h(r.url)}" target="_blank" rel="noopener">View original record<span aria-hidden="true"> ↗</span></a>` : `<a class="btn btn-primary" href="${hasPin(r.holder) ? href('map', { focus: 'i:' + r.holder, holding: 1 }) : href('e/' + r.holder)}">Find where this record is held</a>`}</p>
@@ -291,6 +314,7 @@ function viewRecord(id) {
           <dt>Access restrictions</dt><dd>${h(r.accessRestrictions)}</dd>
           <dt>Rights source</dt><dd>${r.rightsSource ? ( /^https?:\/\//.test(r.rightsSource) ? ext(r.rightsSource, 'Rights statement') : h(r.rightsSource)) : 'Not recorded'}</dd>
           <dt>Rights review</dt><dd>${r.rightsVerified ? 'Verified by curator' : 'Needs curator verification; no reuse permission implied'}</dd>
+          ${(same => same.length ? `<dt>Also listed as</dt><dd>${same.map(x => `<a href="${href('r/' + x.id)}">${h(x.reference || x.title)}</a>`).join(', ')} <span class="meta">(a curator marked these as the same item)</span></dd>` : '')(findDuplicates().filter(g => g.decision === 'same' && g.records.includes(r)).flatMap(g => g.records).filter((x, i, a) => x !== r && a.indexOf(x) === i))}
         </dl>
         ${subjects.length ? `<h2 class="h3">People, places and topics</h2><div class="tags">${subjects.map(l => tag(l.id)).join('')}</div>` : ''}
         <details class="prov"><summary>Provenance</summary><ol>${r.provenance.map(s => `<li>${h(s)}</li>`).join('')}</ol>
@@ -315,7 +339,7 @@ function viewMap(_, p) {
   });
   return `<div class="wrap page">
     <h1>Map</h1>
-    <p class="lead">Places named in ${plural(recs.length, 'record')}. Records without a confirmed place stay searchable without a pin.</p>
+    <p class="lead map-lead">Places named in ${plural(recs.length, 'record')}.<span class="meta">Records with no confirmed place have no pin, but you can still search them.</span></p>
     <div class="filters">
       <label class="fsel"><span>Topic</span><select id="map-topic"><option value="">Any</option>${topics.map(t => `<option value="${t}" ${p.topic === t ? 'selected' : ''}>${h(nameOf(t))}</option>`).join('')}</select></label>
       <label class="check"><input type="checkbox" id="map-lines" ${p.lines ? 'checked' : ''}> Show where records are held</label>

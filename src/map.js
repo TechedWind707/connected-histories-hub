@@ -92,7 +92,7 @@ function mountRecordsMap(el, recs, opt = {}) {
     const tooltip = `<b>${h(I.name)}</b><br>${h(I.address || 'Street address not available')}`;
     const marker = L.marker(ll, { icon: sq }).addTo(map)
       .bindTooltip(tooltip, { direction: 'top', opacity: .97 });
-    if (!holdingOnly) marker.bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? 'Pin = exact location.' : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`);
+    if (!holdingOnly) marker.bindPopup(`<div class="pop"><b><a href="${href('e/' + k)}">${h(I.name)}</a></b><div class="meta">${h(I.address || 'Address not confirmed')}</div><div class="meta">${h(I.access)}</div><div class="meta">${rs.length} record(s) here</div><div class="meta">${pos.exact ? h(I.pinNote || 'Pin = exact location.') : `Pin = ${h(PLACES[I.place].name)} community point, not the building.`}</div></div>`);
     markers['i:' + k] = marker;
     bounds.push(ll);
   }

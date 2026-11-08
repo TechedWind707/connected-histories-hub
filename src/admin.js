@@ -8,16 +8,16 @@
    and stores decisions with the curator's name.
    ===================================================================== */
 
-const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Record Linking'], ['dictionary', 'Keyword Dictionary'], ['record-review', 'Record approvals'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
+const ADMIN_TABS = [['dashboard', 'Dashboard'], ['review', 'Record Linking'], ['dictionary', 'Keyword Dictionary'], ['record-review', 'Record approvals'], ['duplicates', 'Duplicates'], ['suggestions', 'Suggestions'], ['institutions', 'Institutions'], ['import', 'Import CSV'], ['sources', 'Sources'], ['data', 'Data and backup']];
 const statusWord = s => `<span class="status status-${s}">${{ pending: 'Pending', approved: 'Approved', confirmed: 'Approved', rejected: 'Rejected', suggested: 'Pending' }[s] || s}</span>`;
 
 function viewAdmin(tab = 'dashboard', p = {}) {
   if (!ADMIN_TABS.some(t => t[0] === tab)) tab = 'dashboard';
-  const body = { dashboard: adminDashboard, review: adminReview, dictionary: adminDictionary, 'record-review': adminRecordReview, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
+  const body = { dashboard: adminDashboard, review: adminReview, dictionary: adminDictionary, 'record-review': adminRecordReview, duplicates: adminDuplicates, suggestions: adminSuggestions, institutions: adminInstitutions, import: adminImport, sources: adminSources, data: adminData }[tab](p);
   return `<div class="wrap page admin">
     <p class="notice">Admin demo. There is no sign-in in this prototype, and changes are saved in this browser only.</p>
     <h1>Admin</h1>
-    <nav class="subnav" aria-label="Admin sections">${ADMIN_TABS.map(([k, l]) => `<a href="${href('admin/' + k)}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'suggestions' && SUBS.some(s => s.status === 'pending') ? ` (${SUBS.filter(s => s.status === 'pending').length})` : ''}</a>`).join('')}</nav>
+    <nav class="subnav" aria-label="Admin sections">${ADMIN_TABS.map(([k, l]) => `<a href="${href('admin/' + k)}" ${k === tab ? 'aria-current="page"' : ''}>${l}${k === 'suggestions' && SUBS.some(s => s.status === 'pending') ? ` (${SUBS.filter(s => s.status === 'pending').length})` : ''}${k === 'duplicates' && openDuplicates().length ? ` (${openDuplicates().length})` : ''}</a>`).join('')}</nav>
     ${body}</div>`;
 }
 
@@ -30,6 +30,7 @@ function adminDashboard() {
     ['CSV records awaiting review', PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending').length, 'admin/record-review'],
     ['Records needing rights verification', RECORDS.filter(r => !r.rightsVerified).length, 'admin/record-review'],
     ['Record links to review', pendingLinks().length, 'admin/review'],
+    ['Possible duplicates', openDuplicates().length, 'admin/duplicates'],
     ['Holding institutions', new Set(RECORDS.map(r => r.holder)).size, 'admin/institutions'],
     ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, null],
     ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, null]
@@ -37,11 +38,43 @@ function adminDashboard() {
   return `<div class="stat-grid">${stats.map(([l, n, to]) => `<${to ? `a href="#/${to}"` : 'div'} class="stat"><span class="stat-n">${n}</span><span>${l}</span></${to ? 'a' : 'div'}>`).join('')}</div>
     <div class="two">
       <section><h2>Needs attention</h2><ul class="plain">
+        ${autoChecks().map(c => `<li>${c}</li>`).join('')}
         ${REVIEW_FLAGS.map(f => `<li>${f.ids ? f.ids.map(i => tag(i)).join(' ') + ' ' : ''}${h(f.why)} ${f.url ? ext(f.url, 'Read more') : ''}</li>`).join('')}
         <li>${RECORDS.filter(r => /Negro|mulatto|Slums/i.test(r.title)).length} titles use historical terms that are harmful today. They are kept as the source wrote them; consider adding a content note.</li>
       </ul></section>
       <section><h2>Recent activity</h2>${ACTIVITY.length ? `<ul class="plain">${ACTIVITY.slice(0, 10).map(a => `<li><span class="meta">${new Date(a.at).toLocaleString()}</span><br>${h(a.text)}</li>`).join('')}</ul>` : '<p class="meta">Nothing yet.</p>'}</section>
     </div>`;
+}
+
+/* Automatic checks for the dashboard: work waiting and likely mistakes. */
+function autoChecks() {
+  const out = [];
+  const dup = openDuplicates(); if (dup.length) out.push(`<a href="${href('admin/duplicates')}">${plural(dup.length, 'group')} of possible duplicate records</a> (${dup.filter(g => g.strength === 'strong').length} strong).`);
+  const pendDup = PENDING_IMPORTS.filter(r => r.reviewStatus === 'pending' && looksLikeExisting(r).length);
+  if (pendDup.length) out.push(`<a href="${href('admin/record-review')}">${plural(pendDup.length, 'CSV record')} waiting for approval ${pendDup.length === 1 ? 'looks' : 'look'} like records already in the hub.</a>`);
+  const noWay = RECORDS.filter(r => !r.url && !r.physicalLocation && !INSTITUTIONS[r.holder]?.address);
+  if (noWay.length) out.push(`${plural(noWay.length, 'record')} ${noWay.length === 1 ? 'has' : 'have'} no original link and no address to visit.`);
+  const badDate = RECORDS.filter(r => r.dateStart != null && (r.dateStart < 1500 || r.dateStart > new Date().getFullYear()));
+  if (badDate.length) out.push(`${plural(badDate.length, 'record')} ${badDate.length === 1 ? 'has' : 'have'} a date that looks wrong: ${badDate.slice(0, 3).map(r => `<a href="${href('r/' + r.id)}">${h(r.title)}</a>`).join(', ')}.`);
+  const noAddr = Object.keys(INSTITUTIONS).filter(k => recsOf(k).length && !INSTITUTIONS[k].address);
+  if (noAddr.length) out.push(`${plural(noAddr.length, 'holding institution')} ${noAddr.length === 1 ? 'has' : 'have'} no visitor address: ${noAddr.map(k => h(instName(k))).join(', ')}.`);
+  return out;
+}
+
+function adminDuplicates() {
+  onMount(() => $$('[data-dup]').forEach(b => b.onclick = () => {
+    const g = findDuplicates().find(x => x.key === b.dataset.key); if (!g) return;
+    if (b.dataset.dup) DUPS[g.key] = b.dataset.dup; else delete DUPS[g.key];
+    logActivity(`${b.dataset.dup ? (b.dataset.dup === 'same' ? 'Marked as the same item' : 'Marked as different items') : 'Reopened'}: “${g.records[0].title}” (${g.records.length} records)`);
+    saveAll(); render();
+  }));
+  const all = findDuplicates().sort((a, b) => !!a.decision - !!b.decision || (a.strength === 'strong' ? -1 : 1));
+  if (!all.length) return '<p class="lead">No possible duplicates found.</p>';
+  return `<p class="lead">The hub checks every record for the same original link, or the same title at the same institution. Nothing is merged or hidden automatically: you decide.</p>
+    ${all.map(g => `<article class="panel sub"><div class="row-between"><h3>${h(g.records[0].title)}</h3>${g.decision ? statusWord(g.decision === 'same' ? 'approved' : 'rejected').replace(/>(Approved|Rejected)</, '>' + (g.decision === 'same' ? 'Same item' : 'Different items') + '<') : `<span class="status status-pending">${g.strength === 'strong' ? 'Likely duplicate' : 'Check'}</span>`}</div>
+      <p class="meta">${h(g.why)} · ${plural(g.records.length, 'record')} · ${h(instName(g.records[0].holder))}</p>
+      <ul class="plain">${g.records.map(r => `<li><a href="${href('r/' + r.id)}">${h(r.title)}</a> <span class="meta">${h(r.dateText || 'no date')} · ${h(r.reference || r.id)}</span>${r.url ? ' · ' + ext(r.url, 'original') : ''}</li>`).join('')}</ul>
+      <div class="rev-act">${g.decision ? `<button class="btn btn-quiet" data-dup="" data-key="${h(g.key)}">Undo</button>` : `<button class="btn btn-secondary" data-dup="same" data-key="${h(g.key)}">Same item</button><button class="btn btn-quiet" data-dup="different" data-key="${h(g.key)}">Different items</button>`}</div></article>`).join('')}`;
 }
 
 function linkActionMarkup(rid,eid,term) {
@@ -237,7 +270,7 @@ function adminRecordReview() {
   return `<p class="lead">CSV imports stay private until approved. Confirm rights ownership, reproduction permission, restrictions and holding location before publication. Existing catalogue records are flagged as unverified; do not assume permission to reuse their content.</p>
     <h2>Pending CSV records (${pending.length})</h2>
     ${pending.length ? pending.map(r => `<details class="rev"><summary>${h(r.title)} · ${h(instName(r.holder))}</summary>
-      <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>
+      <form class="form" data-review-record="${h(r.id)}"><p class="meta">${h(r.format)} · ${r.url ? ext(r.url, 'Catalogue') : 'No URL — physical only'}</p>${(d => d.length ? `<p class="notice">Possible duplicate of ${d.slice(0, 3).map(x => `<a href="${href('r/' + x.id)}">${h(x.title)}</a>`).join(', ')}. Check before approving.</p>` : '')(looksLikeExisting(r))}
       ${rightsFields(r)}<label>Physical holding location (when applicable)<input name="physicalLocation" value="${h(r.physicalLocation || '')}"></label>
       <div class="rev-act"><button class="btn btn-secondary" value="save">Save review details</button><button class="btn btn-primary" value="approve">Approve and publish</button><button class="btn btn-quiet" value="reject">Reject</button></div></form></details>`).join('') : '<p>No CSV records awaiting review.</p>'}
     ${previous.length ? `<h2>Decided imports</h2><p>${previous.map(r => `${h(r.title)} (${h(r.reviewStatus)})`).join(' · ')}</p>` : ''}
@@ -255,6 +288,10 @@ function adminSuggestions() {
         if (!rightsReady({ ...r, physicalLocation: s.physicalLocation })) { alert('Verify rights holder, ownership, permissions, restrictions, evidence and physical location or URL before approval.'); return; }
         s.rightsVerified = true;
       }
+      if (action === 'delete') {
+        if (!confirm(`Delete “${s.title}”? This removes the suggestion, and its record if it was approved.`)) return;
+        SUBS = SUBS.filter(x => x !== s); logActivity(`Deleted suggestion “${s.title}”`); saveAll(); buildIndex(); render(); return;
+      }
       if (action !== 'save') { s.status = action; s.decidedAt = new Date().toISOString(); }
       logActivity(`${action} suggestion “${s.title}”`); saveAll(); buildIndex(); render();
     });
@@ -267,7 +304,7 @@ function adminSuggestions() {
       <form class="form" data-sub-review="${h(s.id)}">${rightsFields(s)}
       <div class="rev-act"><button class="btn btn-secondary" value="save">Save details</button>
       ${s.status !== 'approved' ? `<button class="btn btn-primary" value="approved">Approve</button>` : `<a href="${href('r/sub-' + s.id)}">View record</a>`}
-      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button></div></form></article>`).join('')}`;
+      <button class="btn btn-quiet" value="rejected">Reject</button><button class="btn btn-quiet" value="pending">Pending</button><button class="btn btn-quiet danger" value="delete" formnovalidate>Delete</button></div></form></article>`).join('')}`;
 }
 
 function adminInstitutions(p) {
@@ -297,6 +334,8 @@ function adminInstitutions(p) {
       const k = f.dataset.inst, d = Object.fromEntries(new FormData(f)), err = check(d);
       if (err) { $('.form-err', f).textContent = err; $('.form-err', f).hidden = false; return; }
       INST_EDITS[k] = { ...(INST_EDITS[k] || {}), ...d };
+      const O = ORIGINAL_INST[k] || {};   // a new pin entered here is the admin's, not OpenStreetMap's
+      INST_EDITS[k].pinNote = (+d.lat === O.lat && +d.lng === O.lng) ? (O.pinNote || '') : (d.lat ? 'Pin = exact location (entered in Admin).' : '');
       logActivity(`Updated details for ${INSTITUTIONS[k].name}`); saveAll(); buildIndex(); go('admin/institutions', { saved: k });
     });
     const nf = $('#inst-new');
@@ -432,14 +471,14 @@ function adminSources() {
 function adminData() {
   onMount(() => {
     $('#exp').onclick = () => {
-      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, PENDING_IMPORTS, RIGHTS_EDITS, SUBS, INST_EDITS, ACTIVITY }, null, 2)], { type: 'application/json' });
+      const blob = new Blob([JSON.stringify({ exported: new Date().toISOString(), CUR, IMPORTED, PENDING_IMPORTS, RIGHTS_EDITS, SUBS, INST_EDITS, ACTIVITY, KEYWORDS, KEYWORD_SUGGESTIONS, KEYWORD_DISMISSED, KEYWORD_DISABLED, DUPS }, null, 2)], { type: 'application/json' });
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = 'connected-histories-admin-backup.json'; a.click(); URL.revokeObjectURL(a.href);
     };
     $('#imp').onchange = e => { const f = e.target.files[0]; if (!f) return; f.text().then(t => {
-      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; PENDING_IMPORTS = d.PENDING_IMPORTS || []; RIGHTS_EDITS = d.RIGHTS_EDITS || {}; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
+      try { const d = JSON.parse(t); CUR = d.CUR || {}; IMPORTED = d.IMPORTED || []; PENDING_IMPORTS = d.PENDING_IMPORTS || []; RIGHTS_EDITS = d.RIGHTS_EDITS || {}; SUBS = d.SUBS || []; INST_EDITS = d.INST_EDITS || {}; ACTIVITY = d.ACTIVITY || []; KEYWORDS = d.KEYWORDS || []; KEYWORD_SUGGESTIONS = d.KEYWORD_SUGGESTIONS || []; KEYWORD_DISMISSED = d.KEYWORD_DISMISSED || []; KEYWORD_DISABLED = d.KEYWORD_DISABLED || []; DUPS = d.DUPS || {}; applyInstEdits(); logActivity('Restored a backup'); saveAll(); buildIndex(); render(); }
       catch { alert('That file is not a Connected Histories backup.'); } }); };
     $('#reset').onclick = () => { if (!confirm('Remove all decisions, imports, suggestions and edits saved in this browser?')) return;
-      CUR = {}; IMPORTED = []; PENDING_IMPORTS = []; RIGHTS_EDITS = {}; SUBS = []; INST_EDITS = {}; ACTIVITY = []; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
+      CUR = {}; IMPORTED = []; PENDING_IMPORTS = []; RIGHTS_EDITS = {}; SUBS = []; INST_EDITS = {}; ACTIVITY = []; KEYWORDS = []; KEYWORD_SUGGESTIONS = []; KEYWORD_DISMISSED = []; KEYWORD_DISABLED = []; DUPS = {}; for (const k of Object.keys(INSTITUTIONS)) if (!ORIGINAL_INST[k] && k !== 'community') delete INSTITUTIONS[k]; Object.assign(INSTITUTIONS, JSON.parse(JSON.stringify(ORIGINAL_INST))); saveAll(); buildIndex(); render(); };
   });
   return `<p class="lead">Admin changes live in this browser. Download a backup to move them to another computer.</p>
     <p><button class="btn btn-secondary" id="exp">Download backup</button> <label class="btn btn-quiet">Restore from a backup<input type="file" id="imp" accept="application/json" hidden></label></p>

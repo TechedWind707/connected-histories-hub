@@ -14,10 +14,10 @@ Live: https://techedwind707.github.io/connected-histories-hub/
 - **Home** — one search box (Search or Ask a question), a rotating Featured card, six Browse cards, and a link to the full map.
 - **Search** — results with simple filters (held by, type, place, years). Beside the results: a mini graph of what is **directly** connected to what you searched, and a small map.
 - **Pages for people, places, organizations, events, topics and institutions** — quoted context with sources, the records, direct connections, where to find them, and a map of connected places at the end.
-- **Record pages** — who holds it, how to access it, one button to the original, provenance.
+- **Record pages** — who holds it, how to access it, one button to the original (or to where it's held), rights details, an overall review status, provenance.
 - **Map** — linked from Home and Search (not in the nav).
 - **Suggest a resource** — public form; suggestions wait for a curator.
-- **Admin** (no sign-in in this prototype; saved in the browser) — dashboard, review queue for keyword links, suggestions, institution visitor details, CSV import, sources, backup and restore.
+- **Admin** (no sign-in in this prototype; saved in the browser) — dashboard with automatic checks, record linking, keyword dictionary, record approvals (CSV drafts), duplicates, suggestions, institutions (with exact pins), CSV import, sources, backup and restore.
 
 ## How it's built
 
@@ -29,7 +29,7 @@ src/graph.js       small graph drawing on <canvas> (no library)
 src/core.js        saved state, data index, search, router
 src/map.js         Leaflet map (OpenStreetMap tiles, CARTO fallback)
 src/widgets.js     featured carousel, mini graph
-src/ask.js         grounded question answering (+ optional Claude)
+src/ask.js         grounded question answering (Claude phrasing code kept, not shown publicly)
 src/views.js       public screens
 src/admin.js       admin screens
 src/style.css      styles, from the Connected Histories design system
@@ -42,7 +42,7 @@ Edit files in `src/`, then run `python build.py`.
 
 `carouselShouldPause()` in `src/widgets.js`. The carousel never pauses. Make it return `true` when the mouse is over it, focus is inside it, the tab is hidden, or the user prefers reduced motion. Hints are in the comment.
 
-Sources harvested: archives.novascotia.ca/africanns · archives.novascotia.ca/desmond · recherche-collection-search.bac-lac.gc.ca · warmuseum.ca/collections · halifax.ca/about-halifax/municipal-archives/source-guides/africville-sources · geogratis.gc.ca (CGNDB).
+Sources harvested: archives.novascotia.ca/africanns · archives.novascotia.ca/desmond · recherche-collection-search.bac-lac.gc.ca · warmuseum.ca/collections · halifax.ca/about-halifax/municipal-archives/source-guides/africville-sources · geogratis.gc.ca (CGNDB). Institution coordinates: OpenStreetMap (Nominatim), © OpenStreetMap contributors.
 Leaflet 1.9.4 © Volodymyr Agafonkin, BSD-2 (see `vendor/LEAFLET-LICENSE`).
 
 ## November 2026 prototype update — physical holdings, rights, and import approval

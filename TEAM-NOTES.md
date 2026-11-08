@@ -13,7 +13,7 @@ Everything here used to be on the site ("How it works", "The brief", data qualit
 | Explain where and how to access it | Access line on every record + "Visit …" panel with address |
 | Link to the authoritative record | "View original record" on every record and result |
 | Preserve provenance | Record → *Provenance*: each step the hub took + the original metadata |
-| AI search grounded in records, nothing invented | *Ask a question*. Answers are built only from matching records, numbered sources on every line; says so when nothing matches (try "Tell me about Martin Luther King"). Optional Claude mode: Claude sees only the cited records; any sentence without a valid citation is deleted |
+| AI search grounded in records, nothing invented | *Ask a question*. Answers are built only from matching records, numbered sources on every line; says so when nothing matches (try "Tell me about Martin Luther King"). (The optional Claude phrasing was taken off the public page in round 5; the code is still in `ask.js` for a future curator tool) |
 | Institution / location views | Institutions page; map of places + holders |
 | Relationship mapping | Mini graph beside search results and on every page, showing only direct connections. Gold lines = relationship with a cited source |
 | Reference, don't copy | Only metadata + links stored; thumbnails shown from the source servers |
@@ -77,6 +77,30 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 | Add institutions in Admin; precise pins | *Admin → Institutions*: edit or **add** an institution with address, **latitude/longitude**, a fallback community, website and access notes. With coordinates the pin sits on the building ("Pin = exact location"); without, it falls back to the community point as before. Address links open the map on that exact pin. Coordinates are validated |
 | | Note: none of the 11 institutions have exact coordinates yet. Enter them in Admin (they save in the browser) or tell Claude/the team to add them to `src/authority.js` as `lat`/`lng` so everyone gets them |
 
+## 4d. Ezri's update (merged 8 Nov)
+
+- **Record approvals:** CSV imports wait as drafts and are not public until a curator checks rights and approves them.
+- **Rights fields** on every record (rights holder, custody, copyright, reproduction permission, restrictions, evidence) and a rights review for existing records.
+- **Keyword dictionary** with automatic keyword suggestions, and a **Record Linking** queue.
+- **Physical-only and "both" submissions:** no link needed if you say where the item is held. Such records get "Find where this record is held" (opens the map on the building).
+- **Blank CSV template** + a 15-record rights test file (in the repo root).
+- Two `DEMO ONLY` physical records (titles say so). They are attributed to NSA and HMA, so they are fake items under real names: keep them labelled, or remove before judging if anyone worries about "no invented information".
+
+## 4e. Round 5 changes (8 Nov)
+
+| Feedback | What changed |
+|---|---|
+| Find the coordinates for the institutions | 9 buildings now use OpenStreetMap coordinates (popup says "Pin = building (OpenStreetMap)"). BCCNS isn't in OpenStreetMap, so its pin is street-level on Cherry Brook Road and says so. Nova Scotia Museum (History Collection) has no confirmed address, so no pin. If an admin types new coordinates, the popup changes to "entered in Admin" |
+| Homepage intro, "Every result…" line | Two sentences, two deliberate lines, so the second never wraps awkwardly |
+| Remove "Have Claude phrase the answer" | Gone from the public Ask page. Answers are still built only from records, with numbered sources |
+| Map text positioning | One short lead line, with the no-pin note under it in small text. Checkbox gets its own row on phones |
+| "Search within these" didn't work | Cause: typing a new search on that page threw away the filter (e.g. Africville), so you searched everything. Now the filter is kept: the box says "Search within these records", and if nothing matches you get a link to search all records |
+| POC: overall review status | Every record page now shows one status: **Fully reviewed**, **Partly reviewed**, **Catalogue description** (rights not yet reviewed, no reuse permission implied) or **Demo record** |
+| POC B5: delete a test submission | *Admin → Suggestions* has a **Delete** button (asks first) |
+| Mentor: duplicate detection | New *Admin → Duplicates*: flags records with the same original link, or the same title at the same holder (stronger if the date matches too). Curator picks "Same item" or "Different items"; nothing is merged or hidden. "Same item" adds "Also listed as" on the record pages. A CSV draft that looks like an existing record gets a warning before approval |
+| Mentor: dashboard shows pending work and possible errors | Dashboard "Needs attention" now lists automatic checks: duplicates, CSV drafts that look like existing records, records with no link and no address, dates that look wrong, holders with no address |
+| Backup missed some admin data | Backup / restore / reset now include the keyword dictionary and duplicate decisions too |
+
 ## 5. Round 1 changes (prototype → full build)
 
 | Prototype (v5.x) | Full build | Why |
@@ -91,5 +115,19 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 
 - One-day snapshot of selected result pages, not a live sync. Production: scheduled re-harvest (OAI-PMH, APIs, CSV drops), logged per run.
 - Names matched as spelled; possible duplicates flagged, never auto-merged.
-- Some holders' visitor details unconfirmed (marked). Institution pins sit on the community point, not the building.
+- Some holders' visitor details unconfirmed (marked). Institution pins are on the building (OpenStreetMap) except BCCNS (street level) and NS Museum (no pin). Place pins are the community point from the gazetteer, not an exact spot.
 - Admin changes live in one browser; no login. Use *Admin → Data and backup* to move them.
+- Rights fields on harvested records are mostly "Unknown"; the hub shows catalogue descriptions and links, and never implies permission to reuse.
+
+## 7. Future development (from the mentor meeting)
+
+**Scalability.** All data lives in the page and the browser now. Fine for 172 records, not for thousands.
+- **PostgreSQL** for records, sources, rights, curator decisions and the audit log (who approved what, when). Full-text search in Postgres to start; a search engine later if needed.
+- **Neo4j** for the knowledge graph: people, places, organizations, events and topics as nodes, with each link carrying its source and confidence. Lets us ask "who appears with whom, where" across thousands of records.
+- **Sign-in with roles** (curator, institution editor, admin) instead of the open admin demo.
+- **Scheduled re-harvest** per source (OAI-PMH, APIs, CSV drops) with a log per run.
+
+**Automation.** Already in the prototype: duplicate detection, automatic keyword suggestions, the dashboard of pending work and likely errors, CSV duplicate warnings. Next:
+- Fuzzy duplicate matching (similar titles, same reference number) and name variants ("Eddie Beals" / "Edward 'Ned' Beals").
+- Grouping keywords automatically into themes for curators to accept.
+- Incremental graph updates: when one record is approved, update only its links instead of rebuilding everything, and rank graph neighbours by how many records they share.
