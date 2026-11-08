@@ -74,7 +74,7 @@ function browseIds(t) {
 /* ---------- search box (Search / Ask) ---------- */
 /* scope = filters already applied on the search page (e.g. person=…, from a
    page's "Search within these"). A new query keeps them, so you search inside. */
-const SCOPE_KEYS = ['holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
+const SCOPE_KEYS = ['within', 'holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
 const scopeOf = p => Object.fromEntries(SCOPE_KEYS.filter(k => p[k]).map(k => [k, p[k]]));
 function searchBox(q, mode = 'search', scope = {}) {
   const scoped = mode === 'search' && Object.keys(scope).length > 0;
@@ -89,13 +89,13 @@ function searchBox(q, mode = 'search', scope = {}) {
     <div class="sbox-row">
       <div class="sbox-field">
         <label class="sr-only" for="q">${mode === 'ask' ? 'Your question' : 'Search records'}</label>
-        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : scoped ? 'Search within these records' : 'People, places, communities, subjects, years'}"
+        <input id="q" name="q" autocomplete="off" value="${h(q)}" placeholder="${mode === 'ask' ? 'Ask about a person, place or event' : scope.within ? `Search within ${h(nameOf(scope.within))} records` : scoped ? 'Search within these records' : 'People, places, communities, subjects, years'}"
           ${mode === 'search' ? 'role="combobox" aria-autocomplete="list" aria-controls="suggest" aria-expanded="false"' : ''}>
         <div id="suggest" class="suggest" role="listbox" hidden></div>
       </div>
       <button class="btn btn-primary" type="submit">${mode === 'ask' ? 'Ask' : 'Search'}</button>
     </div>
-    <p class="sbox-ex">Try ${ex.map(x => `<button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button>`).join(', ')}</p>
+    ${scoped ? '' : `<p class="sbox-ex">Try ${ex.map(x => `<button type="button" class="linklike" data-ex="${h(x)}">${h(x)}</button>`).join(', ')}</p>`}
   </form>`;
 }
 function bindSearchBox() {
@@ -179,24 +179,30 @@ function viewSearch(_, p) {
   const n = +(p.n || 20);
   const sel = (key, label, get, name) => {
     const counts = new Map();
-    for (const r of hits) for (const v of new Set(get(r))) counts.set(v, (counts.get(v) || 0) + 1);
+    const pool = p[key] ? runSearch({ ...p, [key]: '' }) : hits;   // ignore this dropdown's own choice when counting its options
+    for (const r of pool) for (const v of new Set(get(r))) counts.set(v, (counts.get(v) || 0) + 1);
     if (p[key] && !counts.has(p[key])) counts.set(p[key], 0);
     const opts = [...counts].sort((a, b) => b[1] - a[1]).slice(0, 25);
     return `<label class="fsel"><span>${label}</span><select data-k="${key}"><option value="">Any</option>${opts.map(([v, c]) => `<option value="${h(v)}" ${p[key] === v ? 'selected' : ''}>${h(name(v))} (${c})</option>`).join('')}</select></label>`;
   };
-  const entityFilters = ['person', 'org', 'event', 'topic'].filter(k => p[k]);
+  // "within": came here from a page's "Search within these" button, and that filter is still on
+  const withinKey = p.within && node(p.within) ? facetKeyFor(node(p.within).type) : '';
+  const within = withinKey && p[withinKey] === p.within ? p.within : '';
+  const withinTotal = within ? runSearch({ [withinKey]: within }).length : 0;
+  const entityFilters = ['person', 'org', 'event', 'topic'].filter(k => p[k] && !(k === withinKey && p[k] === p.within));
   // the centre of the mini graph: the entity the query names, else the query itself
   const top = p.q ? entityMatches(p.q, 1).find(x => x.rank <= 1) : null;
   const focus = entityFilters.length ? p[entityFilters[0]] : (p.place || top?.id || null);
   onMount(bindSearchBox);
   onMount(() => {
-    $$('.filters select').forEach(s => s.onchange = () => go('search', { ...p, [s.dataset.k]: s.value, n: '' }));
+    $$('.filters select').forEach(s => s.onchange = () => go('search', { ...p, [s.dataset.k]: s.value, n: '', within: s.value || s.dataset.k !== withinKey ? p.within : '' }));
     const yf = $('#years'); if (yf) yf.onsubmit = e => { e.preventDefault(); go('search', { ...p, from: yf.from.value, to: yf.to.value }); };
     mountMiniGraph($('#mini-graph'), focus ? { focus } : { query: p.q, records: hits });
     mountRecordsMap($('#mini-map'), hits, { lines: false });
   });
   const mapped = hits.filter(r => r.mapped.length).length;
   return `<div class="wrap page search-page">
+    ${within ? `<div class="within-bar"><p>Searching within <b>${h(nameOf(within))}</b> · ${plural(withinTotal, 'record')}</p><p class="within-links"><a href="${href('e/' + within)}">Back to the ${h(nameOf(within))} page</a><a href="${href('search', { q: p.q })}">Search everything instead</a></p></div>` : ''}
     ${searchBox(p.q || '', 'search', scopeOf(p))}
     <div class="filters">
       ${sel('holder', 'Held by', r => [r.holder], instName)}
@@ -207,7 +213,8 @@ function viewSearch(_, p) {
     ${entityFilters.length ? `<p class="active-f">Searching within records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
     <div class="search-cols">
       <section aria-live="polite">
-        <p class="count">${plural(hits.length, 'result')}${p.q ? ` for “${h(p.q)}”` : ''}</p>
+        <p class="count">${plural(hits.length, 'result')}${p.q ? ` for “${h(p.q)}”` : ''}${within ? ` in ${h(nameOf(within))}` : ''}</p>
+        ${top && !within && !entityFilters.length ? `<a class="best" href="${href('e/' + top.id)}"><span class="best-k">${typeLabel(top.n.type)} · ${plural(top.count, 'record')}</span><span class="best-name">${h(top.n.name)}</span><span class="best-go">Open the ${h(top.n.name)} page: highlights, map and connections →</span></a>` : ''}
         ${!hits.length ? `<div class="empty"><h2>Nothing matches yet</h2><p>The hub only shows what institutions have described. Try fewer words or another spelling, or <a href="${href('search', { ask: p.q })}">ask it as a question</a>.${p.q && Object.keys(scopeOf(p)).length ? ` <a href="${href('search', { q: p.q })}">Search all records for “${h(p.q)}”</a>.` : ''}</p></div>` : ''}
         <div class="rlist">${hits.slice(0, n).map(recordRow).join('')}</div>
         ${hits.length > n ? `<a class="btn btn-secondary more" href="${href('search', { ...p, n: n + 20, keep: 1 })}">Show more results</a>` : ''}
@@ -245,11 +252,11 @@ function viewEntity(id) {
     <p class="meta lead-meta">${PLACES[id]?.lat != null ? `<a href="${href('map', { focus: 'p:' + id })}">See ${h(n.name)} on the map</a> · ` : ''}${kind} · ${plural(recs.length, 'record')}${n.type === 'institution' ? '' : ' · ' + plural(holders.length, 'institution')} · ${span(recs)}</p>
     <div class="two">
       <div>
-        ${statements.length ? `<section class="quotes">${statements.map(([t, l, u]) => `<blockquote><p>“${h(t)}”</p><footer>${ext(u, h(l))}</footer></blockquote>`).join('')}</section>` : ''}
+        ${statements.length ? `<section class="quotes"><h2>Highlights</h2><p class="meta quotes-note">Quoted from the sources linked under each one.</p>${statements.map(([t, l, u]) => `<blockquote><p>“${h(t)}”</p><footer>${ext(u, h(l))}</footer></blockquote>`).join('')}</section>` : ''}
         ${n.note ? `<p>${h(n.note)}</p>` : ''}
         ${n.type === 'institution' ? `<section class="panel"><h2 class="h3">Visiting</h2><p>${n.address ? addressLink(id) : 'Visitor address not confirmed.'}</p><p class="meta">${h(n.access || '')}</p>${n.web ? ext(n.web, h(n.web.replace(/^https?:\/\//, ''))) : ''}</section>` : ''}
         <section class="section-sm">
-          <div class="row-between"><h2>Records</h2>${recs.length ? `<a href="${href('search', { [facetKeyFor(n.type)]: id })}">Search within these</a>` : ''}</div>
+          <div class="row-between rec-head"><h2>Records</h2>${recs.length > 1 ? `<a class="btn btn-primary" href="${href('search', { [facetKeyFor(n.type)]: id, within: id })}">Search within these ${recs.length} records</a>` : ''}</div>
           ${recs.length ? `<div class="rlist">${recs.slice(0, shown).map(recordRow).join('')}</div>
             ${recs.length > shown ? `<details class="more-recs"><summary>Show ${recs.length - shown} more</summary><div class="rlist">${recs.slice(shown).map(recordRow).join('')}</div></details>` : ''}`
             : '<p>No records are linked yet.</p>'}

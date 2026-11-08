@@ -103,6 +103,9 @@ Source catalogues (4 formats) → harvest snapshot (metadata only) → crosswalk
 | Source-wide rights must not cover items a catalogue shows for someone else | The source form only applies to records that source **holds itself** (NSA: 94 of 106). The 12 NSA-exhibit items held elsewhere (Black Cultural Centre, Dartmouth Heritage Museum, UK archives, etc.) are checked one by one, because their rights come from the holder |
 | Header search suggestions cut off on the left (mid-size windows) | The list now shifts itself to stay on screen |
 | Carousel never paused | Pauses while the mouse is over it, focus is inside it, the tab is hidden, or the user prefers reduced motion |
+| "Search within these" too hidden; page vs results confusing | Place/person pages now label the quoted section **Highlights** and have a red **"Search within these N records"** button. That opens results with a bar on top: "Searching within Preston · 9 records", plus "Back to the Preston page" and "Search everything instead". The box hint says "Search within Preston records"; "Try" examples are hidden there |
+| Try links went to results, dropdown went to the page | Both stay as they are, but results now start with a card when your words match a page ("Place · 9 records · Preston · Open the Preston page: highlights, map and connections") |
+| Type / Held by dropdowns only showed the picked option | Each dropdown now counts results as if its own choice were off, so you can switch directly to another option |
 | Backup missed some admin data | Backup / restore / reset now include the keyword dictionary and duplicate decisions too |
 
 ## 5. Round 1 changes (prototype → full build)
