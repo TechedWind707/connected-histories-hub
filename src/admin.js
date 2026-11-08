@@ -268,7 +268,7 @@ function adminRecordReview() {
     $$('form[data-source-rights]').forEach(f => f.onsubmit = e => {
       e.preventDefault();
       const src = f.dataset.sourceRights, d = Object.fromEntries(new FormData(f));
-      const recs = RECORDS.filter(r => r.provider === src && r.source !== 'demo' && !r.rightsVerified);
+      const recs = RECORDS.filter(r => r.provider === src && r.holder === src && r.source !== 'demo' && !r.rightsVerified);
       if (!rightsReady({ ...d, url: 'x' })) { alert('Fill every field with what the source actually says. "Unknown" is not a permission.'); return; }
       if (!confirm(`Apply this rights statement to ${recs.length} records from ${instName(src)}? Records already reviewed one by one are not changed.`)) return;
       for (const r of recs) RIGHTS_EDITS[r.id] = { ...d, rightsVerified: true, rightsBy: 'source' };
@@ -295,12 +295,12 @@ function adminRecordReview() {
     <h2>Rights for harvested records (${legacy.length} to check)</h2>
     <p class="meta">These came from the institutions' catalogues. Rights usually apply to a whole source, so check each source's terms of use once, then fix single records below if they differ. Fill in what the source actually says. "Unknown" is not a permission.</p>
     ${[...new Set(harvested.map(r => r.provider))].map(src => {
-      const all = harvested.filter(r => r.provider === src), todo = all.filter(r => !r.rightsVerified), I = INSTITUTIONS[src];
+      const all = harvested.filter(r => r.provider === src), todo = all.filter(r => !r.rightsVerified), own = todo.filter(r => r.holder === src), others = todo.length - own.length, I = INSTITUTIONS[src];
       return `<article class="panel sub"><div class="row-between"><h3>${h(instName(src))}</h3><span class="status status-${todo.length ? 'pending' : 'approved'}">${all.length - todo.length} of ${all.length} checked</span></div>
         <p class="meta">Find their rights or terms-of-use page ${I?.web ? `starting from ${ext(I.web, 'their website')}` : ''}, then fill this in once for the whole source.</p>
-        <details class="rev"><summary>Rights for all ${plural(todo.length, 'unchecked record')} from this source</summary>
-          <form class="form" data-source-rights="${h(src)}">${rightsFields({})}<div class="rev-act"><button class="btn btn-primary">Apply to ${plural(todo.length, 'record')}</button>${all.length - todo.length ? `<button type="button" class="btn btn-quiet" data-undo-source="${h(src)}">Clear all reviews for this source</button>` : ''}</div></form></details>
-        ${todo.length ? `<details class="rev"><summary>Check records one by one (${todo.length})</summary>${todo.map(r => `<details class="rev"><summary>${h(r.title)} <span class="meta">· ${h(r.dateText || 'no date')}</span></summary>
+        <details class="rev"><summary>Rights for the ${plural(own.length, 'unchecked record')} ${h(instName(src))} holds itself</summary>${others ? `<p class="meta">${plural(others, 'record')} from this catalogue ${others === 1 ? 'is' : 'are'} held by another institution. ${others === 1 ? 'Its' : 'Their'} rights come from that holder, so check ${others === 1 ? 'it' : 'them'} one by one below.</p>` : ''}
+          <form class="form" data-source-rights="${h(src)}">${rightsFields({})}<div class="rev-act"><button class="btn btn-primary">Apply to ${plural(own.length, 'record')}</button>${all.length - todo.length ? `<button type="button" class="btn btn-quiet" data-undo-source="${h(src)}">Clear all reviews for this source</button>` : ''}</div></form></details>
+        ${todo.length ? `<details class="rev"><summary>Check records one by one (${todo.length})</summary>${todo.map(r => `<details class="rev"><summary>${h(r.title)} <span class="meta">· ${h(r.dateText || 'no date')}${r.holder !== src ? ' · held by ' + h(instName(r.holder)) : ''}</span></summary>
           <p class="meta"><a href="${href('r/' + r.id)}">Open record page</a>${r.url ? ' · ' + ext(r.url, 'Original catalogue page') : ''}</p>
           <form class="form" data-legacy-rights="${h(r.id)}">${rightsFields(r, true)}<div class="rev-act"><button class="btn btn-secondary" value="save" formnovalidate>Save draft</button><button class="btn btn-primary" value="verify">Mark rights as checked</button></div></form></details>`).join('')}</details>` : ''}
       </article>`; }).join('')}`;
