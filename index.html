@@ -2351,6 +2351,8 @@ function runSearch(p) {
   if (p.from) hits = hits.filter(x => x.r.dateEnd != null && x.r.dateEnd >= +p.from);
   if (p.to) hits = hits.filter(x => x.r.dateStart != null && x.r.dateStart <= +p.to);
   if (p.mapped) hits = hits.filter(x => x.r.mapped.length);
+  if (p.nodate) hits = hits.filter(x => x.r.dateStart == null);    // admin dashboard: records missing a date
+  if (p.nomap) hits = hits.filter(x => !x.r.mapped.length);        // admin dashboard: records with no map pin
   if (p.image) hits = hits.filter(x => x.r.image);
   const sort = p.sort || (qt.length ? 'rel' : 'old');
   hits.sort((a, b) => sort === 'rel' ? b.s - a.s || (a.r.dateStart ?? 9999) - (b.r.dateStart ?? 9999)
@@ -2866,7 +2868,7 @@ function browseIds(t) {
 /* ---------- search box (Search / Ask) ---------- */
 /* scope = filters already applied on the search page (e.g. person=…, from a
    page's "Search within these"). A new query keeps them, so you search inside. */
-const SCOPE_KEYS = ['within', 'holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
+const SCOPE_KEYS = ['nodate', 'nomap', 'within', 'holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
 const scopeOf = p => Object.fromEntries(SCOPE_KEYS.filter(k => p[k]).map(k => [k, p[k]]));
 function searchBox(q, mode = 'search', scope = {}) {
   const scoped = mode === 'search' && Object.keys(scope).length > 0;
@@ -3011,6 +3013,7 @@ function viewSearch(_, p) {
       ${sel('place', 'Place', r => r.places, nameOf)}
       <form id="years" class="fsel years"><span>Years</span><div><input name="from" inputmode="numeric" placeholder="From" value="${h(p.from || '')}" aria-label="From year"><input name="to" inputmode="numeric" placeholder="To" value="${h(p.to || '')}" aria-label="To year"><button class="btn btn-quiet" type="submit">Apply</button></div></form>
     </div>
+    ${p.nodate || p.nomap ? `<p class="active-f">Showing only records ${[p.nodate ? 'with no date' : '', p.nomap ? 'with no map location' : ''].filter(Boolean).join(' and ')} <a class="tag tag-x" href="${href('search', { ...p, nodate: '', nomap: '' })}">Show all records ×</a></p>` : ''}
     ${entityFilters.length ? `<p class="active-f">Searching within records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
     <div class="search-cols">
       <section aria-live="polite">
@@ -3270,8 +3273,8 @@ function adminDashboard() {
     ['Record links to review', pendingLinks().length, 'admin/review'],
     ['Possible duplicates', openDuplicates().length, 'admin/duplicates'],
     ['Holding institutions', new Set(RECORDS.map(r => r.holder)).size, 'admin/institutions'],
-    ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, null],
-    ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, null]
+    ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, 'search?nodate=1'],
+    ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, 'search?nomap=1']
   ];
   return `<div class="stat-grid">${stats.map(([l, n, to]) => `<${to ? `a href="#/${to}"` : 'div'} class="stat"><span class="stat-n">${n}</span><span>${l}</span></${to ? 'a' : 'div'}>`).join('')}</div>
     <div class="two">
