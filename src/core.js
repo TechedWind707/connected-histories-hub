@@ -227,6 +227,8 @@ function runSearch(p) {
   if (p.from) hits = hits.filter(x => x.r.dateEnd != null && x.r.dateEnd >= +p.from);
   if (p.to) hits = hits.filter(x => x.r.dateStart != null && x.r.dateStart <= +p.to);
   if (p.mapped) hits = hits.filter(x => x.r.mapped.length);
+  if (p.nodate) hits = hits.filter(x => x.r.dateStart == null);    // admin dashboard: records missing a date
+  if (p.nomap) hits = hits.filter(x => !x.r.mapped.length);        // admin dashboard: records with no map pin
   if (p.image) hits = hits.filter(x => x.r.image);
   const sort = p.sort || (qt.length ? 'rel' : 'old');
   hits.sort((a, b) => sort === 'rel' ? b.s - a.s || (a.r.dateStart ?? 9999) - (b.r.dateStart ?? 9999)

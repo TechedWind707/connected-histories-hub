@@ -32,8 +32,8 @@ function adminDashboard() {
     ['Record links to review', pendingLinks().length, 'admin/review'],
     ['Possible duplicates', openDuplicates().length, 'admin/duplicates'],
     ['Holding institutions', new Set(RECORDS.map(r => r.holder)).size, 'admin/institutions'],
-    ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, null],
-    ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, null]
+    ['Records with no date', RECORDS.filter(r => r.dateStart == null).length, 'search?nodate=1'],
+    ['Records with no map location', RECORDS.filter(r => !r.mapped.length).length, 'search?nomap=1']
   ];
   return `<div class="stat-grid">${stats.map(([l, n, to]) => `<${to ? `a href="#/${to}"` : 'div'} class="stat"><span class="stat-n">${n}</span><span>${l}</span></${to ? 'a' : 'div'}>`).join('')}</div>
     <div class="two">

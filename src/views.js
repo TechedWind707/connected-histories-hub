@@ -74,7 +74,7 @@ function browseIds(t) {
 /* ---------- search box (Search / Ask) ---------- */
 /* scope = filters already applied on the search page (e.g. person=…, from a
    page's "Search within these"). A new query keeps them, so you search inside. */
-const SCOPE_KEYS = ['within', 'holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
+const SCOPE_KEYS = ['nodate', 'nomap', 'within', 'holder', 'provider', 'type', 'place', 'person', 'org', 'event', 'topic', 'access', 'from', 'to'];
 const scopeOf = p => Object.fromEntries(SCOPE_KEYS.filter(k => p[k]).map(k => [k, p[k]]));
 function searchBox(q, mode = 'search', scope = {}) {
   const scoped = mode === 'search' && Object.keys(scope).length > 0;
@@ -219,6 +219,7 @@ function viewSearch(_, p) {
       ${sel('place', 'Place', r => r.places, nameOf)}
       <form id="years" class="fsel years"><span>Years</span><div><input name="from" inputmode="numeric" placeholder="From" value="${h(p.from || '')}" aria-label="From year"><input name="to" inputmode="numeric" placeholder="To" value="${h(p.to || '')}" aria-label="To year"><button class="btn btn-quiet" type="submit">Apply</button></div></form>
     </div>
+    ${p.nodate || p.nomap ? `<p class="active-f">Showing only records ${[p.nodate ? 'with no date' : '', p.nomap ? 'with no map location' : ''].filter(Boolean).join(' and ')} <a class="tag tag-x" href="${href('search', { ...p, nodate: '', nomap: '' })}">Show all records ×</a></p>` : ''}
     ${entityFilters.length ? `<p class="active-f">Searching within records linked to ${entityFilters.map(k => `<a class="tag tag-x" href="${href('search', { ...p, [k]: '' })}" aria-label="Remove ${h(nameOf(p[k]))}">${h(nameOf(p[k]))} ×</a>`).join(' ')}</p>` : ''}
     <div class="search-cols">
       <section aria-live="polite">
